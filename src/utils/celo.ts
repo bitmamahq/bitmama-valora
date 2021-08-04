@@ -1,12 +1,13 @@
 import { newKit, StableToken } from "@celo/contractkit";
 import { ethers } from "ethers";
 import { requestValoraTransaction } from "./valoraLib";
-import {
-  requestAccountAddress,
-  waitForAccountAuth,
-} from "@celo/dappkit/lib/web";
+// import {
+//   requestAccountAddress,
+//   waitForAccountAuth,
+// } from "@celo/dappkit/lib/web";
 import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWrapper";
 import { GoldTokenWrapper } from "@celo/contractkit/lib/wrappers/GoldTokenWrapper";
+import { valoraTransaction } from "./valoraUtils";
 
 export const kit = newKit(process.env.REACT_APP_CELO_ENDPOINT as string);
 export const web3 = kit.web3;
@@ -172,6 +173,11 @@ export const getTransaction = async (trxHash: any) => {
 //   }
 // };
 
+export const transferToken2 = async () => {
+  const trans = await valoraTransaction(kit);
+  console.log("TRX::: ", trans);
+};
+
 export const transferToken = async (
   token: string,
   amount: number,
@@ -196,13 +202,17 @@ export const transferToken = async (
     console.log("Balance:: ", tokenBalance);
 
     let tokenContract: StableTokenWrapper | GoldTokenWrapper;
+    let tokenAddress = "";
 
     if (token === "cusd") {
       tokenContract = await kit.contracts.getStableToken(StableToken.cUSD);
+      tokenAddress = tokenContract.address;
     } else if (token === "ceur") {
       tokenContract = await kit.contracts.getStableToken(StableToken.cEUR);
+      tokenAddress = tokenContract.address;
     } else if (token === "celo") {
       tokenContract = await kit.contracts.getGoldToken();
+      tokenAddress = tokenContract.address;
     }
 
     const encodedData = ethers.utils.defaultAbiCoder
@@ -210,15 +220,18 @@ export const transferToken = async (
         ["address", "uint256"],
         [
           process.env.REACT_APP_CELO_SINK,
-          kit.web3.utils.toWei(String(amount), "ether"),
+          kit.web3.utils.toWei(String(1), "ether"),
         ]
       )
       .substring(2);
 
-    // const methodId = (tokenContract).methodIds.transfer.substring(2);
-    const methodId = "";
+    console.log("ENCODED DATA::: ");
 
-    const transferData = `${methodId}${encodedData}`;
+    // @ts-ignore
+    const methodId = tokenContract.methodIds.transfer.substring(2);
+    // const methodId = "";
+
+    const transferData = `0x${methodId}${encodedData}`;
     console.log("TRANSFA DATA::", transferData);
     // const transactionParameters = {
     //   to: tokenContract.address,
@@ -227,7 +240,7 @@ export const transferToken = async (
     // };
 
     const transactionParameters = {
-      to: process.env.VUE_APP_CELO_SINK,
+      to: tokenAddress,
       from: fromAddress,
       txData: transferData,
     };

@@ -20,6 +20,7 @@ import {
   useGetBanksByCountryQuery,
   useResolveAccountMutation,
 } from "../services/bankApi";
+
 import debounce from "lodash/debounce";
 import { getExchangeRate as getRate } from "../utils/bitmamaLib";
 import { IExchangeRate } from "../interfaces";
@@ -33,6 +34,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch } from "../store";
 import { RouterProps } from "@reach/router";
+import { transferToken, transferToken2 } from "../utils/celo";
 
 type FiatType = "ng" | "gh";
 type TransferType = "bank" | "mobileMoney";
@@ -89,6 +91,28 @@ function Swap(props: RouterProps & { path: string }) {
     )
       return true;
     return false;
+  };
+
+  const submitTransaction = async () => {
+    console.log(
+      "BUTTON PRESSED:::",
+      accountNumber,
+      token,
+      fiat,
+      sendValue,
+      receiveValue,
+      transferMethod,
+      bankCode
+    );
+
+    const trans = await transferToken(
+      "cusd",
+      1,
+      "0xbaff2fbc4afb436b39d93b6c5d5591704c561043"
+    );
+
+    // const trans = await transferToken2();
+    return "again";
   };
 
   //   console.log("ACCOUNT DETAILS ERROR", bankDetailError);
@@ -474,7 +498,10 @@ function Swap(props: RouterProps & { path: string }) {
                   mt="30px"
                   fontSize="sm"
                   fontWeight="400"
-                  disabled={!isApprovable()}
+                  onClick={async () => {
+                    await submitTransaction();
+                  }}
+                  // disabled={!isApprovable()}
                 >
                   Approve Spend
                 </Button>
