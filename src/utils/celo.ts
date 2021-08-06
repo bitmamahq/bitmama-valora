@@ -1,12 +1,13 @@
-import { newKit, StableToken } from "@celo/contractkit";
-import { ethers } from "ethers";
-import { requestValoraTransaction } from "./valoraLib";
+import { CeloContract, newKit, StableToken } from "@celo/contractkit";
+import { GoldTokenWrapper } from "@celo/contractkit/lib/wrappers/GoldTokenWrapper";
 // import {
 //   requestAccountAddress,
 //   waitForAccountAuth,
 // } from "@celo/dappkit/lib/web";
 import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWrapper";
-import { GoldTokenWrapper } from "@celo/contractkit/lib/wrappers/GoldTokenWrapper";
+import { DappKitRequestTypes, DappKitResponseStatus } from "@celo/utils";
+import { ethers } from "ethers";
+import { requestValoraTransaction } from "./valoraLib";
 import { valoraTransaction } from "./valoraUtils";
 
 export const kit = newKit(process.env.REACT_APP_CELO_ENDPOINT as string);
@@ -215,6 +216,10 @@ export const transferToken = async (
       tokenAddress = tokenContract.address;
     }
 
+    const stableAddress = await kit.registry.addressFor(CeloContract.StableToken)
+    const baseNonce = await kit.connection.nonce(fromAddress)
+
+
     const encodedData = ethers.utils.defaultAbiCoder
       .encode(
         ["address", "uint256"],
@@ -233,16 +238,22 @@ export const transferToken = async (
 
     const transferData = `0x${methodId}${encodedData}`;
     console.log("TRANSFA DATA::", transferData);
-    // const transactionParameters = {
-    //   to: tokenContract.address,
-    //   from: fromAddress,
-    //   txData: transferData
-    // };
+
+    const gasEstimate = await kit.connection.estimateGas({
+      feeCurrency: stableAddress,
+      from: fromAddress,
+      to: fromAddress,
+      data: transferData,
+    })
 
     const transactionParameters = {
       to: tokenAddress,
       from: fromAddress,
       txData: transferData,
+      estimatedGas: gasEstimate || 1000,
+      nonce: baseNonce + 0,
+      feeCurrencyAddress: stableAddress,
+      value: '0',
     };
 
     // const kito = await kit.contracts.getGoldToken();
@@ -263,12 +274,25 @@ export const transferToken = async (
     // const trx = [];
     // trx.push(transactionParameters);
     // console.log("TRANS:: ", trx);
-
-    const txHash = await requestValoraTransaction(transactionParameters);
-    //
-    console.log("TXHASH:: ", txHash);
-    return txHash;
+    try{
+      const resp = await requestValoraTransaction(kit, [transactionParameters]);
+      console.log("valora response: ", resp);
+      if (resp.type === DappKitRequestTypes.SIGN_TX && resp.status === DappKitResponseStatus.SUCCESS) {
+        const sent = web3.eth.sendSignedTransaction(resp.rawTxs[0])
+        return new Promise((resolve, reject) => {
+          sent.on('transactionHash', (hash) => {
+            console.log('Valora TX sent', hash)
+            resolve(hash)
+          })
+          sent.catch((err) => reject(err))
+        })
+      }
+    } catch (e) {
+      console.error('[Valora] Failed to send transaction', e)
+      throw e
+    }
   } catch (err) {
+    console.log("Error ", err)
     return Promise.reject(err);
   }
 };

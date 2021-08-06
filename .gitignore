@@ -6,6 +6,9 @@
 .pnp.js
 .idea
 
+/drafts
+drafts
+
 # testing
 /coverage
 

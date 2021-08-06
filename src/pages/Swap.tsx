@@ -1,59 +1,52 @@
+import { RepeatIcon } from "@chakra-ui/icons";
 import {
-  Box,
-  Container,
+  Badge, Box, CircularProgress, Container,
   FormControl,
   Heading,
-  HStack,
-  Image,
-  VStack,
-  InputGroup,
-  InputRightElement,
-  CircularProgress,
-  useToast,
-  IconButton,
-  Badge,
-  InputLeftElement,
+  HStack, IconButton, Image, InputGroup, InputLeftElement, InputRightElement, useToast, VStack
 } from "@chakra-ui/react";
-import React from "react";
-import { Input, Select, Button } from "../components";
+import { RouterProps } from "@reach/router";
+import debounce from "lodash/debounce";
+import React, { useCallback, useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Button, Input, Select } from "../components";
+import { IExchangeRate } from "../interfaces";
 import {
   useGetBanksByCountryQuery,
-  useResolveAccountMutation,
+  useResolveAccountMutation
 } from "../services/bankApi";
-
-import debounce from "lodash/debounce";
-import { getExchangeRate as getRate } from "../utils/bitmamaLib";
-import { IExchangeRate } from "../interfaces";
-
-import { RepeatIcon } from "@chakra-ui/icons";
 import {
   getWalletBalance,
   selectWallet,
-  setWalletDetails,
+  setWalletDetails
 } from "../slice/wallet";
-import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch } from "../store";
-import { RouterProps } from "@reach/router";
-import { transferToken, transferToken2 } from "../utils/celo";
+import { getExchangeRate as getRate } from "../utils/bitmamaLib";
+import { transferToken } from "../utils/celo";
+import { localStorageKey, requestIdKey } from "../utils/valoraLib";
+
+
 
 type FiatType = "ng" | "gh";
 type TransferType = "bank" | "mobileMoney";
 type TokenType = "celo" | "cusd" | "ceur";
 
 function Swap(props: RouterProps & { path: string }) {
-  const [fiat, setFiat] = React.useState<FiatType>();
-  const [token, setToken] = React.useState<TokenType>();
-  const [sendValue, setSendValue] = React.useState<string>();
-  const [receiveValue, setReceiveValue] = React.useState<string>();
-  const [transferMethod, setTransferMethod] = React.useState<TransferType>();
-  const [checkingRate, setCheckingRate] = React.useState<boolean>(false);
+  const [fiat, setFiat] = useState<FiatType>();
+  const [token, setToken] = useState<TokenType>();
+  const [sendValue, setSendValue] = useState<string>();
+  const [receiveValue, setReceiveValue] = useState<string>();
+  const [transferMethod, setTransferMethod] = useState<TransferType>();
+  const [checkingRate, setCheckingRate] = useState<boolean>(false);
+  const [approvingState, setApprovingState] = useState("");
+  const [currentTab, setCurrentTab] = useState<"" | "newTab" | "redirectedTab">("");
 
-  const [bankCode, setBankCode] = React.useState<string | undefined>();
-  const [accountNumber, setAccountNumber] = React.useState<
+  const [bankCode, setBankCode] = useState<string | undefined>();
+  const [accountNumber, setAccountNumber] = useState<
     string | undefined
   >();
 
-  const [skipBankListLoad, setSkipBankListLoad] = React.useState(true);
+  const [skipBankListLoad, setSkipBankListLoad] = useState(true);
 
   const toast = useToast();
   const dispatch = useDispatch<AppDispatch>();
@@ -72,7 +65,7 @@ function Swap(props: RouterProps & { path: string }) {
     isLoading,
     error: bankListError,
   } = useGetBanksByCountryQuery(fiat ?? "", {
-    skip: skipBankListLoad,
+    skip: skipBankListLoad || currentTab !== "newTab",
   });
 
   const [
@@ -81,6 +74,7 @@ function Swap(props: RouterProps & { path: string }) {
   ] = useResolveAccountMutation();
 
   const isApprovable = () => {
+    if(2+2===4) return true;
     if (
       connected &&
       balance &&
@@ -104,35 +98,70 @@ function Swap(props: RouterProps & { path: string }) {
       transferMethod,
       bankCode
     );
-
+    if(isApprovable()) {
+      setApprovingState("processing")
     const trans = await transferToken(
-      "cusd",
+      "celo",
       1,
-      "0xbaff2fbc4afb436b39d93b6c5d5591704c561043"
+      // "0xbaff2fbc4afb436b39d93b6c5d5591704c561043"
+      // "0x007f3e975b1717eb3783398d91c48b31982610d4"
+      "0xb7b18ff7375e9067ab72b00749b0d5868f043df9"
     );
 
     // const trans = await transferToken2();
-    return "again";
+    return trans;
+    }
   };
 
-  //   console.log("ACCOUNT DETAILS ERROR", bankDetailError);
+  const handleTabState = async() => {
+    if(!currentTab) {
+      const type = new URLSearchParams(props?.location?.search).get("type");
+      const status = new URLSearchParams(props?.location?.search).get("status");
+      const requestId = new URLSearchParams(props?.location?.search).get("requestId");
 
-  React.useEffect(() => {
-    if (bankDetailError || bankListError) {
-      toast({
-        title: "Oops!! something went wrong",
-        description: ((bankDetailError ?? bankListError) as any)?.data.message,
-        status: "error",
-        duration: 2000,
-        isClosable: true,
-      });
+      if(type && status && requestId && String(requestId).includes("signTransaction")) {
+        setCurrentTab("redirectedTab");
+        const value = localStorage.getItem(requestIdKey);
+        console.log({type, status, requestId, value});
+        await Promise.resolve(setTimeout(Promise.resolve, 10000000));
+        if(value && (requestId === value)) {
+          localStorage.setItem(localStorageKey, window.location.href)
+          console.log("Waiting on current window", window.location.href)
+          console.log('Intentional delay for 5secs')
+          setTimeout(function() {
+            window.history.go(-1);
+          //   // window.history.back();
+          }, 5000);
+        }
+      } else {
+        setCurrentTab("newTab")
+      }
     }
-  }, [bankListError, bankDetailError, toast]);
+  }
+
+  useEffect(() => {
+    handleTabState()
+    // eslint-disable-next-line
+  }, [props?.location?.search, currentTab])
+
+  useEffect(() => {
+    if(currentTab === "newTab") {
+      if (bankDetailError || bankListError) {
+        toast({
+          title: "Oops!! something went wrong",
+          description: ((bankDetailError ?? bankListError) as any)?.data.message,
+          status: "error",
+          duration: 2000,
+          isClosable: true,
+        });
+      }
+    }
+  }, [currentTab, bankListError, bankDetailError, toast]);
 
   const phone = new URLSearchParams(props?.location?.search).get("phone");
   const address = new URLSearchParams(props?.location?.search).get("address");
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (phone && address) {
       dispatch(
         setWalletDetails({
@@ -143,11 +172,14 @@ function Swap(props: RouterProps & { path: string }) {
     }
   }, [phone, address, dispatch]);
 
-  React.useEffect(() => {
-    if (balance) {
-      handleSendValue({ target: { value: String(balance) } });
+  useEffect(() => {
+    if(currentTab === "newTab") {
+      if (balance) {
+        handleSendValue({ target: { value: String(balance) } });
+      }
     }
-  }, [balance]);
+    // eslint-disable-next-line
+  }, [currentTab, balance]);
 
   const getExchangeRate = async (
     e: any,
@@ -198,7 +230,8 @@ function Swap(props: RouterProps & { path: string }) {
     if (inputSource === "fiat") setSendValue(sendAmount);
   };
 
-  const debouncedResolveAccount = React.useCallback(
+  // eslint-disable-next-line
+  const debouncedResolveAccount = useCallback(
     debounce(
       (accountNumber, bankCode) =>
         resolveAccount({
@@ -260,6 +293,44 @@ function Swap(props: RouterProps & { path: string }) {
     setAccountNumber(e.target.value);
     debouncedResolveAccount(e.target.value, bankCode as string);
   };
+
+  if(currentTab !== "newTab") {
+    return (
+      <>
+      <Box p="50px 0" minH="100vh">
+        <Box bg="rgba(249,250,251,1)" h="100%">
+          <Container maxW={["container.xl", "xl"]} h="100%">
+            <VStack p={["40px 0", "40px"]}>
+              <VStack>
+                <Image
+                  w="121px"
+                  h="48px"
+                  src="https://prod-doc.fra1.cdn.digitaloceanspaces.com/btm-assets/logo.png"
+                />
+                
+                <Heading
+                  textAlign="center"
+                  fontSize="sm"
+                  m="140px 0 !important"
+                >
+                  {currentTab === "redirectedTab" ? <Box m="0 0 1rem 0 !important">
+                    Processing &nbsp;&nbsp;
+                  </Box> : null }
+                  <CircularProgress
+                    size="24px"
+                    isIndeterminate
+                    color="green.300"
+                  />
+                  
+                </Heading>
+              </VStack>
+            </VStack>
+          </Container>
+        </Box>
+      </Box>
+    </>
+    )
+  }
 
   return (
     <>
@@ -442,9 +513,10 @@ function Swap(props: RouterProps & { path: string }) {
                         value={bankCode}
                         onChange={handleBankCode}
                         placeholder="Choose Bank"
+                        {...(data && data[0] && {defaultValue: data[0].code})}
                       >
                         {data?.map(({ code, name }) => (
-                          <option value={code}>{name}</option>
+                          <option value={code} key={code}>{name}</option>
                         ))}
                       </Select>
                       <InputGroup>
@@ -502,8 +574,14 @@ function Swap(props: RouterProps & { path: string }) {
                     await submitTransaction();
                   }}
                   // disabled={!isApprovable()}
+                  disabled={approvingState === "processing"}
                 >
-                  Approve Spend
+                  {approvingState === "processing" ? 
+                    <CircularProgress
+                      size="16px"
+                      isIndeterminate
+                      color="green.300"
+                    /> : "Approve Spend"}
                 </Button>
               </Box>
             </VStack>

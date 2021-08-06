@@ -1,22 +1,20 @@
-import { ContractKit, StableToken } from "@celo/contractkit";
+import { requestTxSig, waitForSignedTxs } from "@celo-tools/use-contractkit/lib/dappkit-wallet/dappkit";
+import { ContractKit } from "@celo/contractkit";
 import {
-  AccountAuthResponseSuccess,
-  DappKitRequestTypes,
+  // AccountAuthResponseSuccess,
+  // DappKitRequestTypes,
   DappKitResponse,
-  DappKitResponseStatus,
-  parseDappkitResponseDeeplink,
-  SignTxResponseSuccess,
-  TxToSignParam,
+  // DappKitResponseStatus,
+  parseDappkitResponseDeeplink
 } from "@celo/utils";
-// import { requestTxSig } from "@celo-tools/use-contractkit/lib/dappkit-wallet/dappkit";
 import { identity } from "lodash";
 // import {
 //   FeeCurrency,
-//   waitForSignedTxs,
+  // waitForSignedTxs,
 //   requestTxSig,
 // } from "@celo/dappkit/lib/web";
 
-const removeQueryParams = (url: string, keys: string[]): string => {
+export const removeQueryParams = (url: string, keys: string[]): string => {
   const params = parseSearchParamsHashAware(url);
   const whereQuery = url.indexOf("?");
   const urlNoSearchParams = whereQuery !== -1 ? url.slice(0, whereQuery) : url;
@@ -183,7 +181,7 @@ export const valoraTransaction = async (kit: ContractKit): Promise<any> => {
   console.log("REW TX::: ", rawTx);
 
   // Wait for transaction result and check for success
-  let status;
   const tx = await kit.connection.sendSignedTransaction(rawTx);
   const receipt = await tx.waitReceipt();
+  console.log({receipt})
 };

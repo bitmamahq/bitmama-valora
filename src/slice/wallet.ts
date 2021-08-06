@@ -1,7 +1,7 @@
-import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../store";
-
 import { getBalance } from "../utils/celo";
+
 
 interface WalletState {
   address: string;
@@ -65,7 +65,10 @@ const walletSlice = createSlice({
   },
 });
 
-export const selectWallet = (state: RootState) => state.wallet;
+export const selectWallet = (state: RootState) => {
+  console.log({state})
+  return state.wallet;
+}
 
 export const { actions, reducer: walletReducer } = walletSlice;
 export const { setWalletDetails } = actions;
