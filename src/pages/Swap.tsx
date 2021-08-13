@@ -174,7 +174,6 @@ function Swap(props: RouterProps & { path: string }) {
       const address = new URLSearchParams(props?.location?.search).get("address") || "";
       const email = new URLSearchParams(props?.location?.search).get("email") || "";
       const phone = new URLSearchParams(props?.location?.search).get("phone") || "";
-      const balance = new URLSearchParams(props?.location?.search).get("balance") || "";
 
 
       if(type && status && requestId && String(requestId).includes("signTransaction")) {
@@ -196,9 +195,14 @@ function Swap(props: RouterProps & { path: string }) {
             await Promise.resolve(setTimeout(Promise.resolve, 10000000));
           }, 6000)
       } else {
-        setProvidedData({email, phone, address, balance: Number(balance ?? 0)});
+        let balance = 0;
         const acceptableUnit = ["celo", "ceur", "cusd"];
         const coin = unit?.trim().toLowerCase();
+        if(address && unit && coin && acceptableUnit.includes(coin)) {
+          balance = await getBalance(address, coin);
+          if(isNaN(balance)) balance = 0;
+        }
+        setProvidedData({email, phone, address, balance: Number(balance ?? 0)});
         console.log("field ===> ", coin, amount, balance)
         if(coin && acceptableUnit.includes(coin) && !isNaN(amount)) {
           setShowField({

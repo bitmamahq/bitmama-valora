@@ -4,7 +4,6 @@ import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWr
 import { DappKitRequestTypes, DappKitResponseStatus } from "@celo/utils";
 import { ethers } from "ethers";
 import { requestValoraTransaction } from "./valoraLib";
-import { valoraTransaction } from "./valoraUtils";
 
 export const kit = newKit(process.env.REACT_APP_CELO_ENDPOINT as string);
 export const web3 = kit.web3;
