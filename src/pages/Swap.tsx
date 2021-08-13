@@ -1,16 +1,21 @@
 import { CheckCircleIcon, RepeatIcon } from "@chakra-ui/icons";
 import {
   Badge,
-  Box, Center, CircularProgress,
-  Container, Flex, FormControl,
-  Heading, HStack,
+  Box,
+  Center,
+  CircularProgress,
+  Container,
+  Flex,
+  FormControl,
+  Heading,
+  HStack,
   IconButton,
   Image,
   InputGroup,
   InputLeftElement,
   InputRightElement,
   useToast,
-  VStack
+  VStack,
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
 import { isNaN } from "lodash";
@@ -108,7 +113,7 @@ function Swap(props: RouterProps & { path: string }) {
           destinationAddress: trans.destinationAddress,
           paymentDetails: {
             bankCode: bankCode,
-            bankName: String(((data || [{code: "", name: ""}]).filter((b) => b.code === bankCode) || [{ name: "" }])[0].name),
+            bankName: String(((data || [{ code: "", name: "" }]).filter((b) => b.code === bankCode) || [{ name: "" }])[0].name),
             accountNumber: accountNumber,
             accountName: bankDetail?.account_name ?? "",
           },
@@ -125,7 +130,7 @@ function Swap(props: RouterProps & { path: string }) {
           isClosable: true,
         });
       }
-    } catch (error:any) {
+    } catch (error: any) {
       let err = String(error);
       if (error?.isAxiosError) {
         err = error?.response?.data?.message || "Something went wrong";
@@ -253,14 +258,6 @@ function Swap(props: RouterProps & { path: string }) {
     if (!source || !destination) return;
 
     const inputSource = e.target.name;
-    // console.log(
-    //   "INPUT SOURCE",
-    //   inputSource,
-    //   source,
-    //   destination,
-    //   _send ?? sendValue,
-    //   _receive ?? receiveValue
-    // );
 
     if (_send || sendValue || _receive || receiveValue) setCheckingRate(true);
 
@@ -292,8 +289,6 @@ function Swap(props: RouterProps & { path: string }) {
     [resolveAccount]
   );
 
-  // console.log("BANK DATA", bankDetail);
-
   const handleFiat = (e: any) => {
     setFiat(e.target.value);
     debounce(async () => await getExchangeRate(e, { _fiat: e.target.value }), 500)();
@@ -312,13 +307,11 @@ function Swap(props: RouterProps & { path: string }) {
 
   const handleSendValue = (e: any) => {
     setSendValue(e.target.value);
-    // debouncedGetExchangeRate(e, { _send: e.target.value });
     debounce(async () => await getExchangeRate(e, { _send: e.target.value }), 1500)();
   };
 
   const handleReceiveValue = (e: any) => {
     setReceiveValue(e.target.value);
-    // debouncedGetExchangeRate(e, { _receive: e.target.value });
     debounce(async () => await getExchangeRate(e, { _receive: e.target.value }), 2000)();
   };
 
@@ -464,8 +457,6 @@ function Swap(props: RouterProps & { path: string }) {
                               isReadOnly={!showField.amount}
                               onChange={handleReceiveValue}
                               type="number"
-                              // as={Input}
-                              // precision={4}
                             />
                             {checkingRate && <InputRightElement children={<CircularProgress size="16px" isIndeterminate color="green.300" />} />}
                           </InputGroup>
@@ -562,7 +553,6 @@ function Swap(props: RouterProps & { path: string }) {
                       onClick={async () => {
                         await submitTransaction();
                       }}
-                      // disabled={!isApprovable()}
                       disabled={!isApprovable() || approvingState === "processing" || approvingState === "completed"}
                     >
                       {approvingState === "processing" ? (
