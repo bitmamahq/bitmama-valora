@@ -117,9 +117,9 @@ function Swap(props: RouterProps & { path: string }) {
     if(isApprovable()) {
       setApprovingState("processing")
       const trans = await transferToken(
-        token,
-        sendValue,
-        providedData.address
+        token || "",
+        sendValue || 0,
+        providedData.address || 0
       );
       if(!trans) throw new Error("Unable to complete transaction")
       if(!trans.hash) throw new Error("Unable to complete transaction")
