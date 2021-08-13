@@ -17,18 +17,23 @@ export const getExchangeRate = async (source: string, destination: string) => {
 };
 
 type TxPayload = {
-  sourceToken: "ceur" | "celo" | "cusd",
-  destinationFiat: "ngn" | "ghs",
-  tokenAmount: number,
-  transferMethod: "bank-transfer" | "mobile-money",
-  email: string,
-  phoneNumber?: string,
-  fiatAmount: number,
-  sourceAddress: string,
-  paymentDetails: Record<string, string>,
-  transactionHash: string,
-  destinationAddress: string,
-}
+  phoneNumber: string;
+  sourceAddress: string | undefined;
+  destinationAddress: any;
+  fiatAmount: number;
+  tokenAmount: number;
+  sourceToken: "celo" | "cusd" | "ceur" | undefined;
+  transferMethod: string;
+  paymentDetails: {
+    bankCode: string | undefined;
+    accountName: string;
+    bankName: string;
+    accountNumber: string | undefined;
+  };
+  destinationFiat: string;
+  email: string;
+  transactionHash: any;
+};
 
 export const sendTxRequest = async (sourcePayload: TxPayload) => {
   try {
@@ -36,7 +41,7 @@ export const sendTxRequest = async (sourcePayload: TxPayload) => {
 
     const payload = {
       ...sourcePayload,
-    }
+    };
 
     const rateReq = await post(endpoint, payload, headers);
     return Promise.resolve(rateReq);

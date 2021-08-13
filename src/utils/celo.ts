@@ -92,7 +92,6 @@ export const transferToken = async (
     if (amount >= tokenBalance) {
       throw new Error("INSUFFICIENT_BALANCE");
     }
-    console.log("Balance:: ", tokenBalance);
 
     let tokenContract: StableTokenWrapper | GoldTokenWrapper;
     let tokenAddress = "";
@@ -121,8 +120,6 @@ export const transferToken = async (
         ]
       )
       .substring(2);
-
-    console.log("ENCODED DATA::: ");
 
     // @ts-ignore
     const methodId = tokenContract.methodIds.transfer.substring(2);
