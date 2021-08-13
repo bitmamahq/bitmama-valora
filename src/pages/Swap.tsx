@@ -2,7 +2,7 @@ import { RepeatIcon } from "@chakra-ui/icons";
 import {
   Badge, Box, CircularProgress, Container,
   FormControl,
-  Heading,
+  Heading,Center, Flex,
   HStack, IconButton, Image, InputGroup, InputLeftElement, InputRightElement, useToast, VStack
 } from "@chakra-ui/react";
 import { RouterProps } from "@reach/router";
@@ -24,6 +24,7 @@ import { AppDispatch } from "../store";
 import { getExchangeRate as getRate, sendTxRequest } from "../utils/bitmamaLib";
 import { transferToken } from "../utils/celo";
 import { localStorageKey, requestIdKey } from "../utils/valoraLib";
+import { CheckCircleIcon } from '@chakra-ui/icons'
 
 
 
@@ -116,6 +117,7 @@ function Swap(props: RouterProps & { path: string }) {
         "0xb7b18ff7375e9067ab72b00749b0d5868f043df9"
       );
       if(!trans) throw new Error("Unable to complete transaction")
+      if(!trans.hash) throw new Error("Unable to complete transaction")
       setApprovingState("completed");
       const txPayload = {
         sourceToken: token,
@@ -124,9 +126,10 @@ function Swap(props: RouterProps & { path: string }) {
         transferMethod: transferMethod === "bank" ? "bank-transfer" : "mobile-money",
         email: providedData.email || "",
         phoneNumber: providedData.phone || "",
-        fiatAmount: Number(receiveAmount),
+        fiatAmount: Number(receiveValue),
         sourceAddress: providedData?.address,
-        txHash: trans,
+        txHash: trans?.hash,
+        destinationAddress: trans.destinationAddress,
         paymentDetails: {
           bankCode: bankCode,
           bankName: String(((data.filter((b) => b.code === bankCode) || [{name: ""}])[0]).name),
@@ -134,8 +137,9 @@ function Swap(props: RouterProps & { path: string }) {
           accountName: bankDetail?.account_name ?? ""
         },
       }
+      console.log({txPayload})
       await sendTxRequest(txPayload);
-      return trans;
+      return trans?.hash;
     } else {
       toast({
           title: "Oops!! Something isn't right",
@@ -146,6 +150,7 @@ function Swap(props: RouterProps & { path: string }) {
         });
     }
     } catch(err) {
+      console.log({err})
         toast({
           title: "Oops!! Something went wrong",
           description: String(err),
@@ -211,7 +216,7 @@ function Swap(props: RouterProps & { path: string }) {
   useEffect(() => {
     
     return () => {
-      window.confirm("Are you sure you want to close this window?")
+      2+2===5 && window.confirm("Are you sure you want to close this window?")
     }
   }, [])
 
@@ -439,112 +444,60 @@ function Swap(props: RouterProps & { path: string }) {
                 bg="white"
                 borderRadius=".5rem"
               >
-                {connected && (
+                {connected && approvingState !== "completed" && (
                   <Badge mb="20px" variant="solid" colorScheme="green">
                     CONNECTED
                   </Badge>
                 )}
-                {approvingState !== "completed" ? 
-                <FormControl>
-                  <Box as="label">You Send</Box>
-                  <HStack mt=".25rem">
-                    <Select
-                      name="send"
-                      fontSize=".85rem"
-                      value={token ?? ""}
-                      onChange={handleToken}
-                      disabled={!showField.unit}
-                      isReadOnly={!showField.unit}
-                      placeholder="Choose Token"
-                    >
-                      <option value="celo">CELO</option>
-                      <option value="cusd">cUSD</option>
-                      <option value="ceur">cEUR</option>
-                    </Select>
-
-                    <InputGroup>
-                      {_balance && showField.amount && (
-                        <InputLeftElement
-                          pl="8px"
-                          children={
-                            <Button
-                              onClick={() =>
-                                handleSendValue({
-                                  target: { value: String(_balance) },
-                                })
-                              }
-                              size="xs"
-                            >
-                              Max
-                            </Button>
-                          }
-                        />
-                      )}
-                      <Input
-                        pl={_balance && showField.amount ? "44px" : "16px"}
-                        name="crypto"
-                        value={sendValue ?? ""}
-                        onChange={handleSendValue}
-                        colorScheme="green"
-                        type="number"
-                        disabled={!token}
-                        isReadOnly={!showField.amount}
-                      />
-                      {checkingRate && !showField.amount && (
-                        <InputRightElement
-                          children={
-                            <CircularProgress
-                              size="16px"
-                              isIndeterminate
-                              color="green.300"
-                            />
-                          }
-                        />
-                      )}
-                    </InputGroup>
-                  </HStack>
-                  {(_balance || connected) ? <HStack mt="4px">
-                    {balanceStatus === "loading" && (
-                      <CircularProgress
-                        size="12px"
-                        isIndeterminate
-                        color="green.300"
-                      />
-                    )}
-                    <Box as="span" fontSize="12px" fontWeight="400">
-                      Balance:{" "}
-                      <strong>
-                        {_balance} {token?.toUpperCase()}
-                      </strong>
-                    </Box>
-                  </HStack> : null}
-                </FormControl> : null}
-
-                {approvingState !== "completed" ? 
-                  <FormControl mt="20px">
-                    <Box as="label">You Receive</Box>
+                {(approvingState !== "completed") ? 
+                  <>
+                  <FormControl>
+                    <Box as="label">You Send</Box>
                     <HStack mt=".25rem">
                       <Select
-                        name="receive"
+                        name="send"
                         fontSize=".85rem"
-                        value={fiat || ""}
-                        onChange={handleFiat}
-                        placeholder="Choose Fiat"
+                        value={token ?? ""}
+                        onChange={handleToken}
+                        disabled={!showField.unit || approvingState === "processing"}
+                        isReadOnly={!showField.unit || approvingState === "processing"}
+                        placeholder="Choose Token"
                       >
-                        <option value="ng">Nigerian Naira (NGN)</option>
-                        <option value="gh">Ghanian Cedis (GHC)</option>
+                        <option value="celo">CELO</option>
+                        <option value="cusd">cUSD</option>
+                        <option value="ceur">cEUR</option>
                       </Select>
 
                       <InputGroup>
+                        {_balance && showField.amount && (
+                          <InputLeftElement
+                            pl="8px"
+                            children={
+                              <Button
+                              disabled={approvingState === "processing"}
+                                onClick={() =>
+                                  handleSendValue({
+                                    target: { value: String(_balance) },
+                                  })
+                                }
+                                size="xs"
+                              >
+                                Max
+                              </Button>
+                            }
+                          />
+                        )}
                         <Input
-                          name="fiat"
-                          value={receiveValue ?? ""}
-                          onChange={handleReceiveValue}
+                          pl={_balance && showField.amount ? "44px" : "16px"}
+                          name="crypto"
+                          value={sendValue ?? ""}
+                          onChange={handleSendValue}
+                          colorScheme="green"
                           type="number"
-                          // as={Input}
-                          // precision={4}
+                          disabled={!token || approvingState === "processing"}
+                          isReadOnly={!showField.amount || approvingState === "processing"}
                         />
-                        {checkingRate && (
+                        {checkingRate && !showField.amount && (
                           <InputRightElement
                             children={
                               <CircularProgress
@@ -557,118 +510,214 @@ function Swap(props: RouterProps & { path: string }) {
                         )}
                       </InputGroup>
                     </HStack>
-                  </FormControl> : 
-                  <>
-                  </>
-                  }
-
-                {fiat && (
-                  <FormControl mt="20px">
-                    <Box as="label">Transfer Method</Box>
-                    <Select
-                      mt=".25rem"
-                      fontSize=".85rem"
-                      value={transferMethod || ""}
-                      onChange={handleTransferMethod}
-                      placeholder="Choose Transfer Method"
-                    >
-                      <option value="bank">Bank Transfer</option>
-                      {fiat === "gh" && (
-                        <option value="mobileMoney">Mobile Money</option>
-                      )}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {transferMethod === "bank" && fiat && (
-                  <FormControl mt="20px">
-                    <HStack>
-                      <Box as="label">Payment Details</Box>
-                      {isLoading && (
+                    {(_balance || connected) ? <HStack mt="4px">
+                      {balanceStatus === "loading" && (
                         <CircularProgress
-                          size="16px"
+                          size="12px"
                           isIndeterminate
                           color="green.300"
                         />
                       )}
-                    </HStack>
-                    <VStack>
+                      <Box as="span" fontSize="12px" fontWeight="400">
+                        Balance:{" "}
+                        <strong>
+                          {_balance} {token?.toUpperCase()}
+                        </strong>
+                      </Box>
+                    </HStack> : null}
+                  </FormControl> 
+
+                  {approvingState !== "completed" ? 
+                    <FormControl mt="20px">
+                      <Box as="label">You Receive</Box>
+                      <HStack mt=".25rem">
+                        <Select
+                          name="receive"
+                          fontSize=".85rem"
+                          value={fiat || ""}
+                          disabled={approvingState === "processing"}
+                          isReadOnly={approvingState === "processing"}
+                          onChange={handleFiat}
+                          placeholder="Choose Fiat"
+                        >
+                          <option value="ng">Nigerian Naira (NGN)</option>
+                          <option value="gh">Ghanian Cedis (GHC)</option>
+                        </Select>
+
+                        <InputGroup>
+                          <Input
+                            name="fiat"
+                            value={receiveValue ?? ""}
+                            disabled={approvingState === "processing"}
+                            isReadOnly={!showField.amount}
+                            onChange={handleReceiveValue}
+                            type="number"
+                            // as={Input}
+                            // precision={4}
+                          />
+                          {checkingRate && (
+                            <InputRightElement
+                              children={
+                                <CircularProgress
+                                  size="16px"
+                                  isIndeterminate
+                                  color="green.300"
+                                />
+                              }
+                            />
+                          )}
+                        </InputGroup>
+                      </HStack>
+                    </FormControl> : 
+                    <>
+                    </>
+                    }
+
+                  {fiat && (
+                    <FormControl mt="20px">
+                      <Box as="label">Transfer Method</Box>
                       <Select
                         mt=".25rem"
                         fontSize=".85rem"
-                        value={bankCode || ""}
-                        onChange={handleBankCode}
-                        placeholder="Choose Bank"
-                        {...(data && data[0] && {defaultValue: data[0].code})}
+                        value={transferMethod || ""}
+                        onChange={handleTransferMethod}
+                        placeholder="Choose Transfer Method"
+                        disabled={approvingState === "processing"}
+                        isReadOnly={approvingState === "processing"}
                       >
-                        {data?.map(({ code, name }, index) => (
-                          <option value={code} key={String(code) + index}>{name}</option>
-                        ))}
+                        <option value="bank">Bank Transfer</option>
+                        {fiat === "gh" && (
+                          <option value="mobileMoney">Mobile Money</option>
+                        )}
                       </Select>
-                      <InputGroup>
-                        <Input
-                          disabled={!bankCode}
-                          type="number"
-                          placeholder="Account Number"
-                          value={accountNumber || ""}
-                          onChange={handleAccountNumber}
-                        />
-                        <InputRightElement
-                          children={
-                            fetchingDetail ? (
-                              <CircularProgress
-                                size="16px"
-                                isIndeterminate
-                                color="green.300"
-                              />
-                            ) : (
-                              <IconButton
-                                size="xs"
-                                as={Button}
-                                aria-label="refetch details"
-                                icon={<RepeatIcon />}
-                                onClick={() =>
-                                  accountNumber && resolveAccount({
-                                    accountNumber: accountNumber as string,
-                                    bankCode: bankCode as string,
-                                  })
-                                }
-                              />
-                            )
-                          }
-                        />
-                      </InputGroup>
-                      <InputGroup>
-                        <Input
-                          disabled
-                          type="text"
-                          placeholder="Account Name"
-                          defaultValue={bankDetail?.account_name ?? ""}
-                        />
-                      </InputGroup>
-                    </VStack>
-                  </FormControl>
-                )}
+                    </FormControl>
+                  )}
 
-                <Button
-                  colorScheme="green"
-                  w="100%"
-                  mt="30px"
-                  fontSize="sm"
-                  fontWeight="400"
-                  onClick={async () => {
-                    await submitTransaction();
-                  }}
-                  // disabled={!isApprovable()}
-                  disabled={approvingState === "processing" || approvingState === "completed"}
-                >
-                  {approvingState === "processing" ? 
-                    <CircularProgress
-                      size="16px"
-                      isIndeterminate
-                      color="green.300"
-                    /> : approvingState === "completed" ? "Successful" : "Approve Spend"}
-                </Button>
+                  {transferMethod === "bank" && fiat && (
+                    <FormControl mt="20px">
+                      <HStack>
+                        <Box as="label">Payment Details</Box>
+                        {isLoading && (
+                          <CircularProgress
+                            size="16px"
+                            isIndeterminate
+                            color="green.300"
+                          />
+                        )}
+                      </HStack>
+                      <VStack>
+                        <Select
+                          mt=".25rem"
+                          fontSize=".85rem"
+                          value={bankCode || ""}
+                          onChange={handleBankCode}
+                          disabled={approvingState === "processing"}
+                          isReadOnly={approvingState === "processing"}
+                          placeholder="Choose Bank"
+                          {...(data && data[0] && {defaultValue: data[0].code})}
+                        >
+                          {data?.map(({ code, name }, index) => (
+                            <option value={code} key={String(code) + index}>{name}</option>
+                          ))}
+                        </Select>
+                        <InputGroup>
+                          <Input
+                            disabled={!bankCode || approvingState === "processing"}
+                            isReadOnly={approvingState === "processing"}
+                            type="number"
+                            placeholder="Account Number"
+                            value={accountNumber || ""}
+                            onChange={handleAccountNumber}
+                          />
+                          <InputRightElement
+                            children={
+                              fetchingDetail ? (
+                                <CircularProgress
+                                  size="16px"
+                                  isIndeterminate
+                                  color="green.300"
+                                />
+                              ) : (
+                                <IconButton
+                                  size="xs"
+                                  as={Button}
+                                  aria-label="refetch details"
+                                  icon={<RepeatIcon />}
+                                  onClick={() =>
+                                    approvingState !== "processing" && accountNumber && resolveAccount({
+                                      accountNumber: accountNumber as string,
+                                      bankCode: bankCode as string,
+                                    })
+                                  }
+                                />
+                              )
+                            }
+                          />
+                        </InputGroup>
+                        <InputGroup>
+                          <Input
+                            disabled
+                            type="text"
+                            placeholder="Account Name"
+                            defaultValue={bankDetail?.account_name ?? ""}
+                          />
+                        </InputGroup>
+                      </VStack>
+                    </FormControl>
+                  )}
+
+                  <Button
+                    colorScheme="green"
+                    w="100%"
+                    mt="30px"
+                    fontSize="sm"
+                    fontWeight="400"
+                    onClick={async () => {
+                      await submitTransaction();
+                    }}
+                    // disabled={!isApprovable()}
+                    disabled={approvingState === "processing" || approvingState === "completed"}
+                  >
+                    {approvingState === "processing" ? 
+                      <CircularProgress
+                        size="16px"
+                        isIndeterminate
+                        color="green.300"
+                      /> : approvingState === "completed" ? "Successful" : "Approve Spend"}
+                  </Button>
+                  </> : 
+                  <>
+                    <Flex color="white" justify="center">
+                      <Center w="100px">
+                        <HStack mt="1.5rem" mb="1.5rem">
+                          <CheckCircleIcon w={16} h={16} color="green.500"/>
+                        </HStack>
+                    </Center>
+                    </Flex>
+                    <Flex color="white" justify="center">
+                      <Center w="100px">
+                        <HStack mt="1.5rem" mb="1.5rem">
+                          <Box as="span" fontSize="20px" fontWeight="bold" color="green">
+                            SUCCESSFUL
+                          </Box>
+                        </HStack>
+                      </Center>
+                    </Flex>
+                    <Flex color="white" justify="center">
+                      <Center w="100px">
+                        <HStack mt="1.5rem" mb="1.5rem">
+                          <Box as="button" onClick={
+                            () => {
+                              window.location='/'
+                            }
+                          } fontSize="12px" fontWeight="200" color="grey">
+                            Back Home
+                          </Box>
+                        </HStack>
+                    </Center>
+                    </Flex>
+                  </>
+              }
               </Box>
             </VStack>
           </Container>

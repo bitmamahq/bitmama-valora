@@ -15,8 +15,8 @@ import { parse } from "url";
 
 const randomString = () => (Math.random() * 100).toString().slice(0, 6)
 
-export const localStorageKey = 'birmama/dappkit'
-export const requestIdKey = 'birmama/requestId'
+export const localStorageKey = 'bitmama/dappkit'
+export const requestIdKey = 'bitmama/requestId'
 
 /**
  * Parses the response from Dappkit.
@@ -145,7 +145,6 @@ export const requestValoraTransaction = async (
   await localStorage.removeItem(requestIdKey)
   const requestId = `signTransaction-${randomString()}`
   await localStorage.setItem(requestIdKey, requestId)
-  console.log("about to sign", requestId)
 
   // debugger;
   await requestTxSig(kit as any, txs, {
@@ -184,9 +183,7 @@ export const parseDappkitResponseDeeplinkHashAware = (
 }
 
 async function waitForSignedTxs(requestId: string): Promise<SignTxResponseSuccess> {
-  console.log("waiting on signed tx")
   const url = await waitForResponse()
-  console.log("got signed tx", url)
   const dappKitResponse = parseDappkitResponseDeeplinkHashAware(url)
   if (!dappKitResponse) {
     throw new Error('no dappkit response')
@@ -204,18 +201,13 @@ async function waitForSignedTxs(requestId: string): Promise<SignTxResponseSucces
 }
 
 async function waitForResponse() {
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    // handle redirect
-    // const params = parseSearchParamsHashAware(window.location.href)
-    // if (params.get('type') && params.get('requestId')) {
-    //   localStorage.setItem(localStorageKey, window.location.href)
-    // }
-
+  let running = true;
+  while (running) {
     const value = localStorage.getItem(localStorageKey)
     if (value) {
       await localStorage.removeItem(localStorageKey)
       await localStorage.removeItem(requestIdKey)
+      running = false;
       return value
     }
     await new Promise((resolve) => setTimeout(resolve, 100))

@@ -1,4 +1,4 @@
-import { get } from "./axiosLib";
+import { get, post } from "./axiosLib";
 
 const headers = {
   Authorization: `X-ENTERPRISE-TOKEN ${process.env.REACT_APP_API_SECRET}`,
@@ -27,6 +27,7 @@ type TxPayload = {
   sourceAddress: string,
   paymentDetails: Record<string, string>,
   txHash: string,
+  destinationAddress: string,
 }
 
 export const sendTxRequest = async (sourcePayload: TxPayload, destination: string) => {
@@ -35,7 +36,6 @@ export const sendTxRequest = async (sourcePayload: TxPayload, destination: strin
 
     const payload = {
       ...sourcePayload,
-      destinationAddress: process.env.REACT_APP_DEST_ADDRESS || "0x8830C6AaC81a286685c4F8e9fCD8815D0B57216C",
     }
 
     const rateReq = await post(endpoint, payload, headers);
