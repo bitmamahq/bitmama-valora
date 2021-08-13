@@ -1,36 +1,13 @@
-import { newKit, StableToken } from "@celo/contractkit";
+import { CeloContract, newKit, StableToken } from "@celo/contractkit";
+import { GoldTokenWrapper } from "@celo/contractkit/lib/wrappers/GoldTokenWrapper";
+import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWrapper";
+import { DappKitRequestTypes, DappKitResponseStatus } from "@celo/utils";
 import { ethers } from "ethers";
 import { requestValoraTransaction } from "./valoraLib";
-// import {
-//   requestAccountAddress,
-//   waitForAccountAuth,
-// } from "@celo/dappkit/lib/web";
-import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWrapper";
-import { GoldTokenWrapper } from "@celo/contractkit/lib/wrappers/GoldTokenWrapper";
 import { valoraTransaction } from "./valoraUtils";
 
 export const kit = newKit(process.env.REACT_APP_CELO_ENDPOINT as string);
 export const web3 = kit.web3;
-
-// export const requestWalletAuth = async () => {
-//   try {
-//     const requestId = "login";
-//     const dappName = "Bitmama";
-//     await requestAccountAddress({
-//       requestId,
-//       dappName: dappName,
-//       callback: window.location.href
-//     });
-//     const response = await waitForAccountAuth(requestId);
-//     return Promise.resolve({
-//       address: response.address,
-//       phoneNumber: response.phoneNumber
-//     });
-//   } catch (err) {
-//     console.log("ERROR IN USER AUTH::: ", err);
-//     return Promise.reject(err);
-//   }
-// };
 
 export const getBalance = async (address: string, token: string) => {
   try {
@@ -95,89 +72,6 @@ export const getTransaction = async (trxHash: any) => {
   }
 };
 
-// export const transferToken = async (
-//   token,
-//   amount,
-//   fromAddress,
-//   // eslint-disable-next-line no-unused-vars
-//   comment = ""
-// ) => {
-//   try {
-//     console.log('ADDRESS FROM::: ', fromAddress)
-//     if (!token || String(token).trim().length <= 0) {
-//       throw new Error("TOKEN_NOT_SPECIFIED");
-//     }
-//
-//     if (!amount || amount <= 0) {
-//       throw new Error("INVALID_AMOUNT");
-//     }
-//
-//     const tokenBalance = await getBalance(fromAddress, token);
-//
-//     if (amount >= tokenBalance) {
-//       throw new Error("INSUFFICIENT_BALANCE");
-//     }
-//     console.log("Balance:: ", tokenBalance);
-//
-//     let tokenContract = "",
-//       rawTx;
-//
-//     const requestId = "transfer";
-//     const dappName = "Bitmama";
-//     const transferToAccount = process.env.VUE_APP_CELO_SINK;
-//
-//     if (token === "cusd") {
-//       tokenContract = await kit.contracts.getStableToken("cUSD");
-//     } else if (token === "ceur") {
-//       tokenContract = await kit.contracts.getStableToken("cEUR");
-//     } else if (token === "celo") {
-//       tokenContract = await kit.contracts.getGoldToken();
-//     }
-//
-//     const txObject = tokenContract.transfer(
-//       transferToAccount,
-//       kit.web3.utils.toWei(String(amount), "ether")
-//     ).txo;
-//
-//     await requestTxSig(
-//       kit,
-//       [
-//         {
-//           tx: txObject,
-//           from: fromAddress,
-//           to: tokenContract.address,
-//           feeCurrency: FeeCurrency.cUSD
-//         }
-//       ],
-//       { requestId, dappName, callback: window.location.href }
-//     );
-//
-//     const response = await waitForSignedTxs(requestId);
-//     rawTx = response.rawTxs[0];
-//
-//     const tx = await kit.connection.sendSignedTransaction(rawTx);
-//     const receipt = await tx.waitReceipt();
-//
-//     // if (receipt.status) {
-//     //   status = "transfer succeeded with receipt: " + receipt.transactionHash;
-//     // } else {
-//     //   console.log(JSON.stringify(receipt))
-//     //   status = "failed to send transaction"
-//     // }
-//
-//     console.log("TRX RECEIPT::: ", receipt);
-//     return receipt;
-//   } catch (err) {
-//     console.log("Error in Transfer:: ", err);
-//     return Promise.reject(err);
-//   }
-// };
-
-export const transferToken2 = async () => {
-  const trans = await valoraTransaction(kit);
-  console.log("TRX::: ", trans);
-};
-
 export const transferToken = async (
   token: string,
   amount: number,
@@ -215,6 +109,10 @@ export const transferToken = async (
       tokenAddress = tokenContract.address;
     }
 
+    const stableAddress = await kit.registry.addressFor(CeloContract.StableToken)
+    const baseNonce = await kit.connection.nonce(fromAddress)
+
+
     const encodedData = ethers.utils.defaultAbiCoder
       .encode(
         ["address", "uint256"],
@@ -229,46 +127,43 @@ export const transferToken = async (
 
     // @ts-ignore
     const methodId = tokenContract.methodIds.transfer.substring(2);
-    // const methodId = "";
 
     const transferData = `0x${methodId}${encodedData}`;
-    console.log("TRANSFA DATA::", transferData);
-    // const transactionParameters = {
-    //   to: tokenContract.address,
-    //   from: fromAddress,
-    //   txData: transferData
-    // };
+
+    const gasEstimate = await kit.connection.estimateGas({
+      feeCurrency: stableAddress,
+      from: fromAddress,
+      to: fromAddress,
+      data: transferData,
+    })
 
     const transactionParameters = {
       to: tokenAddress,
       from: fromAddress,
       txData: transferData,
+      estimatedGas: gasEstimate || 1000,
+      nonce: baseNonce + 0,
+      feeCurrencyAddress: stableAddress,
+      value: '0',
     };
 
-    // const kito = await kit.contracts.getGoldToken();
-
-    // const tre = tokenContract.methods.transferWithComment(
-    //   process.env.VUE_APP_CELO_SINK,
-    //   kit.web3.utils.toWei(String(amount), "ether"),
-    //   "ANYTHING"
-    // );
-    //
-    // await kit.sendTransactionObject(tre, { from: fromAddress });
-
-    // const txHash = await window.celo.request({
-    //   method: "eth_sendTransaction",
-    //   params: [transactionParameters]
-    // });
-
-    // const trx = [];
-    // trx.push(transactionParameters);
-    // console.log("TRANS:: ", trx);
-
-    const txHash = await requestValoraTransaction(transactionParameters);
-    //
-    console.log("TXHASH:: ", txHash);
-    return txHash;
+    try{
+      const resp = await requestValoraTransaction(kit, [transactionParameters]);
+      if (resp.type === DappKitRequestTypes.SIGN_TX && resp.status === DappKitResponseStatus.SUCCESS) {
+        const sent = web3.eth.sendSignedTransaction(resp.rawTxs[0])
+        return new Promise((resolve, reject) => {
+          sent.on('transactionHash', (hash) => {
+            resolve({hash, destinationAddress: tokenAddress})
+          })
+          sent.catch((err) => reject(err))
+        })
+      }
+    } catch (e) {
+      console.error('[Valora] Failed to send transaction', e)
+      throw e
+    }
   } catch (err) {
+    console.log("Error ", err)
     return Promise.reject(err);
   }
 };
