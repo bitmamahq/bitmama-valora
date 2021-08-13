@@ -176,7 +176,7 @@ function Swap(props: RouterProps & { path: string }) {
       const email = new URLSearchParams(props?.location?.search).get("email") || "";
       const phone = new URLSearchParams(props?.location?.search).get("phone") || "";
 
-
+  console.log({type, status, requestId})
       if(type && status && requestId && String(requestId).includes("signTransaction")) {
         setCurrentTab("redirectedTab");
         const value = await localStorage.getItem(requestIdKey);

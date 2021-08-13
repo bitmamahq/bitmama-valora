@@ -66,7 +66,6 @@ const walletSlice = createSlice({
 });
 
 export const selectWallet = (state: RootState) => {
-  console.log({state})
   return state.wallet;
 }
 
