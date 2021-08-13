@@ -21,7 +21,7 @@ import {
   setWalletDetails
 } from "../slice/wallet";
 import { AppDispatch } from "../store";
-import { getExchangeRate as getRate } from "../utils/bitmamaLib";
+import { getExchangeRate as getRate, sendTxRequest } from "../utils/bitmamaLib";
 import { transferToken } from "../utils/celo";
 import { localStorageKey, requestIdKey } from "../utils/valoraLib";
 
@@ -36,6 +36,16 @@ function Swap(props: RouterProps & { path: string }) {
   const [token, setToken] = useState<TokenType>();
   const [sendValue, setSendValue] = useState<string>();
   const [receiveValue, setReceiveValue] = useState<string>();
+  const [showField, setShowField] = useState({
+    unit: true, amount: true
+  });
+  const [providedData, setProvidedData] = useState({
+    email: "",
+    phone: "",
+    address: "",
+    balance: 0
+  });
+
   const [transferMethod, setTransferMethod] = useState<TransferType>();
   const [checkingRate, setCheckingRate] = useState<boolean>(false);
   const [approvingState, setApprovingState] = useState("");
@@ -74,12 +84,11 @@ function Swap(props: RouterProps & { path: string }) {
   ] = useResolveAccountMutation();
 
   const isApprovable = () => {
-    if(2+2===4) return true;
     if (
-      connected &&
-      balance &&
-      Number(sendValue) <= balance &&
-      accountNumber?.length! > 10 &&
+      (connected || true) &&
+      _balance &&
+      Number(sendValue) <= _balance &&
+      accountNumber?.length &&
       fiat &&
       token
     )
@@ -88,6 +97,7 @@ function Swap(props: RouterProps & { path: string }) {
   };
 
   const submitTransaction = async () => {
+    try {
     console.log(
       "BUTTON PRESSED:::",
       accountNumber,
@@ -100,44 +110,110 @@ function Swap(props: RouterProps & { path: string }) {
     );
     if(isApprovable()) {
       setApprovingState("processing")
-    const trans = await transferToken(
-      "celo",
-      1,
-      // "0xbaff2fbc4afb436b39d93b6c5d5591704c561043"
-      // "0x007f3e975b1717eb3783398d91c48b31982610d4"
-      "0xb7b18ff7375e9067ab72b00749b0d5868f043df9"
-    );
+      const trans = await transferToken(
+        token,
+        sendValue,
+        "0xb7b18ff7375e9067ab72b00749b0d5868f043df9"
+      );
+      if(!trans) throw new Error("Unable to complete transaction")
+      setApprovingState("completed");
+      const txPayload = {
+        sourceToken: token,
+        destinationFiat: fiat === "ng" ? "ngn" : "ghs",
+        tokenAmount: Number(sendValue),
+        transferMethod: transferMethod === "bank" ? "bank-transfer" : "mobile-money",
+        email: providedData.email || "",
+        phoneNumber: providedData.phone || "",
+        fiatAmount: Number(receiveAmount),
+        sourceAddress: providedData?.address,
+        txHash: trans,
+        paymentDetails: {
+          bankCode: bankCode,
+          bankName: String(((data.filter((b) => b.code === bankCode) || [{name: ""}])[0]).name),
+          accountNumber: accountNumber,
+          accountName: bankDetail?.account_name ?? ""
+        },
+      }
+      await sendTxRequest(txPayload);
+      return trans;
+    } else {
+      toast({
+          title: "Oops!! Something isn't right",
+          description: "Ensure you filled all the inputs correctly and that you have sufficient balance in your account",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+    }
+    } catch(err) {
+        toast({
+          title: "Oops!! Something went wrong",
+          description: String(err),
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
 
-    // const trans = await transferToken2();
-    return trans;
     }
   };
 
   const handleTabState = async() => {
     if(!currentTab) {
+      console.log("handling tab state")
       const type = new URLSearchParams(props?.location?.search).get("type");
       const status = new URLSearchParams(props?.location?.search).get("status");
       const requestId = new URLSearchParams(props?.location?.search).get("requestId");
+      
+      const unit = new URLSearchParams(props?.location?.search).get("unit");
+      const amount = new URLSearchParams(props?.location?.search).get("amount");
+      const address = new URLSearchParams(props?.location?.search).get("address") || "";
+      const email = new URLSearchParams(props?.location?.search).get("email") || "";
+      const phone = new URLSearchParams(props?.location?.search).get("phone") || "";
+      const balance = new URLSearchParams(props?.location?.search).get("balance") || "";
+
 
       if(type && status && requestId && String(requestId).includes("signTransaction")) {
         setCurrentTab("redirectedTab");
-        const value = localStorage.getItem(requestIdKey);
+        const value = await localStorage.getItem(requestIdKey);
         console.log({type, status, requestId, value});
-        await Promise.resolve(setTimeout(Promise.resolve, 10000000));
         if(value && (requestId === value)) {
-          localStorage.setItem(localStorageKey, window.location.href)
+          await localStorage.setItem(localStorageKey, window.location.href)
           console.log("Waiting on current window", window.location.href)
           console.log('Intentional delay for 5secs')
-          setTimeout(function() {
-            window.history.go(-1);
+          // setTimeout(function() {
+            // window.history.go(-1);
           //   // window.history.back();
-          }, 5000);
+          // }, 5000);
         }
+        // wait for a while === for debugging
+        setTimeout(async function() {
+          console.log("done debugging??")
+            await Promise.resolve(setTimeout(Promise.resolve, 10000000));
+          }, 6000)
       } else {
+        setProvidedData({email, phone, address, balance: Number(balance ?? 0)});
+        const acceptableUnit = ["celo", "ceur", "cusd"];
+        const coin = unit?.trim().toLowerCase();
+        console.log("field ===> ", coin, amount, balance)
+        if(coin && acceptableUnit.includes(coin) && !isNaN(amount)) {
+          setShowField({
+            unit: false,
+            amount: false,
+          });
+          handleToken({target: {value: coin}})
+          handleSendValue({ target: { value: String(amount) } });
+        }
         setCurrentTab("newTab")
       }
     }
   }
+
+  useEffect(() => {
+    
+    return () => {
+      window.confirm("Are you sure you want to close this window?")
+    }
+  }, [])
 
   useEffect(() => {
     handleTabState()
@@ -332,6 +408,8 @@ function Swap(props: RouterProps & { path: string }) {
     )
   }
 
+  const _balance = balance || providedData?.balance;
+
   return (
     <>
       <Box p="50px 0" minH="100vh">
@@ -366,14 +444,17 @@ function Swap(props: RouterProps & { path: string }) {
                     CONNECTED
                   </Badge>
                 )}
+                {approvingState !== "completed" ? 
                 <FormControl>
                   <Box as="label">You Send</Box>
                   <HStack mt=".25rem">
                     <Select
                       name="send"
                       fontSize=".85rem"
-                      value={token}
+                      value={token ?? ""}
                       onChange={handleToken}
+                      disabled={!showField.unit}
+                      isReadOnly={!showField.unit}
                       placeholder="Choose Token"
                     >
                       <option value="celo">CELO</option>
@@ -382,14 +463,14 @@ function Swap(props: RouterProps & { path: string }) {
                     </Select>
 
                     <InputGroup>
-                      {balance && (
+                      {_balance && showField.amount && (
                         <InputLeftElement
                           pl="8px"
                           children={
                             <Button
                               onClick={() =>
                                 handleSendValue({
-                                  target: { value: String(balance) },
+                                  target: { value: String(_balance) },
                                 })
                               }
                               size="xs"
@@ -400,15 +481,16 @@ function Swap(props: RouterProps & { path: string }) {
                         />
                       )}
                       <Input
-                        pl={balance ? "44px" : "16px"}
+                        pl={_balance && showField.amount ? "44px" : "16px"}
                         name="crypto"
-                        value={sendValue}
+                        value={sendValue ?? ""}
                         onChange={handleSendValue}
                         colorScheme="green"
                         type="number"
                         disabled={!token}
+                        isReadOnly={!showField.amount}
                       />
-                      {checkingRate && (
+                      {checkingRate && !showField.amount && (
                         <InputRightElement
                           children={
                             <CircularProgress
@@ -421,7 +503,7 @@ function Swap(props: RouterProps & { path: string }) {
                       )}
                     </InputGroup>
                   </HStack>
-                  <HStack mt="4px">
+                  {(_balance || connected) ? <HStack mt="4px">
                     {balanceStatus === "loading" && (
                       <CircularProgress
                         size="12px"
@@ -432,49 +514,53 @@ function Swap(props: RouterProps & { path: string }) {
                     <Box as="span" fontSize="12px" fontWeight="400">
                       Balance:{" "}
                       <strong>
-                        {balance} {token?.toUpperCase()}
+                        {_balance} {token?.toUpperCase()}
                       </strong>
                     </Box>
-                  </HStack>
-                </FormControl>
+                  </HStack> : null}
+                </FormControl> : null}
 
-                <FormControl mt="20px">
-                  <Box as="label">You Receive</Box>
-                  <HStack mt=".25rem">
-                    <Select
-                      name="receive"
-                      fontSize=".85rem"
-                      value={fiat}
-                      onChange={handleFiat}
-                      placeholder="Choose Fiat"
-                    >
-                      <option value="ng">Nigerian Naira (NGN)</option>
-                      <option value="gh">Ghanian Cedis (GHC)</option>
-                    </Select>
+                {approvingState !== "completed" ? 
+                  <FormControl mt="20px">
+                    <Box as="label">You Receive</Box>
+                    <HStack mt=".25rem">
+                      <Select
+                        name="receive"
+                        fontSize=".85rem"
+                        value={fiat || ""}
+                        onChange={handleFiat}
+                        placeholder="Choose Fiat"
+                      >
+                        <option value="ng">Nigerian Naira (NGN)</option>
+                        <option value="gh">Ghanian Cedis (GHC)</option>
+                      </Select>
 
-                    <InputGroup>
-                      <Input
-                        name="fiat"
-                        value={receiveValue}
-                        onChange={handleReceiveValue}
-                        type="number"
-                        // as={Input}
-                        // precision={4}
-                      />
-                      {checkingRate && (
-                        <InputRightElement
-                          children={
-                            <CircularProgress
-                              size="16px"
-                              isIndeterminate
-                              color="green.300"
-                            />
-                          }
+                      <InputGroup>
+                        <Input
+                          name="fiat"
+                          value={receiveValue ?? ""}
+                          onChange={handleReceiveValue}
+                          type="number"
+                          // as={Input}
+                          // precision={4}
                         />
-                      )}
-                    </InputGroup>
-                  </HStack>
-                </FormControl>
+                        {checkingRate && (
+                          <InputRightElement
+                            children={
+                              <CircularProgress
+                                size="16px"
+                                isIndeterminate
+                                color="green.300"
+                              />
+                            }
+                          />
+                        )}
+                      </InputGroup>
+                    </HStack>
+                  </FormControl> : 
+                  <>
+                  </>
+                  }
 
                 {fiat && (
                   <FormControl mt="20px">
@@ -482,7 +568,7 @@ function Swap(props: RouterProps & { path: string }) {
                     <Select
                       mt=".25rem"
                       fontSize=".85rem"
-                      value={transferMethod}
+                      value={transferMethod || ""}
                       onChange={handleTransferMethod}
                       placeholder="Choose Transfer Method"
                     >
@@ -510,13 +596,13 @@ function Swap(props: RouterProps & { path: string }) {
                       <Select
                         mt=".25rem"
                         fontSize=".85rem"
-                        value={bankCode}
+                        value={bankCode || ""}
                         onChange={handleBankCode}
                         placeholder="Choose Bank"
                         {...(data && data[0] && {defaultValue: data[0].code})}
                       >
-                        {data?.map(({ code, name }) => (
-                          <option value={code} key={code}>{name}</option>
+                        {data?.map(({ code, name }, index) => (
+                          <option value={code} key={String(code) + index}>{name}</option>
                         ))}
                       </Select>
                       <InputGroup>
@@ -524,7 +610,7 @@ function Swap(props: RouterProps & { path: string }) {
                           disabled={!bankCode}
                           type="number"
                           placeholder="Account Number"
-                          value={accountNumber}
+                          value={accountNumber || ""}
                           onChange={handleAccountNumber}
                         />
                         <InputRightElement
@@ -542,7 +628,7 @@ function Swap(props: RouterProps & { path: string }) {
                                 aria-label="refetch details"
                                 icon={<RepeatIcon />}
                                 onClick={() =>
-                                  resolveAccount({
+                                  accountNumber && resolveAccount({
                                     accountNumber: accountNumber as string,
                                     bankCode: bankCode as string,
                                   })
@@ -574,14 +660,14 @@ function Swap(props: RouterProps & { path: string }) {
                     await submitTransaction();
                   }}
                   // disabled={!isApprovable()}
-                  disabled={approvingState === "processing"}
+                  disabled={approvingState === "processing" || approvingState === "completed"}
                 >
                   {approvingState === "processing" ? 
                     <CircularProgress
                       size="16px"
                       isIndeterminate
                       color="green.300"
-                    /> : "Approve Spend"}
+                    /> : approvingState === "completed" ? "Successful" : "Approve Spend"}
                 </Button>
               </Box>
             </VStack>
