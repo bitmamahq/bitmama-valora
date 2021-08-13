@@ -59,7 +59,7 @@ function Swap(props: RouterProps & { path: string }) {
   const [skipBankListLoad, setSkipBankListLoad] = useState(true);
 
   const toast = useToast();
-  const closeRef = useRef<Timeout>();
+  const closeRef = useRef<any>();
   const dispatch = useDispatch<AppDispatch>();
 
   const { connected, balance, balanceStatus } = useSelector(selectWallet);
