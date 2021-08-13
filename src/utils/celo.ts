@@ -22,9 +22,7 @@ export const getBalance = async (address: string, token: string) => {
 
     switch (token) {
       case "cusd": {
-        const dollarToken = await kit.contracts.getStableToken(
-          StableToken.cUSD
-        );
+        const dollarToken = await kit.contracts.getStableToken(StableToken.cUSD);
         const celoBalance = await dollarToken.balanceOf(address);
 
         balance = Number(web3.utils.fromWei(celoBalance.toString(), "ether"));
@@ -71,12 +69,7 @@ export const getTransaction = async (trxHash: any) => {
   }
 };
 
-export const transferToken = async (
-  token: string,
-  amount: number,
-  fromAddress: string,
-  comment = ""
-) => {
+export const transferToken = async (token: string, amount: number, fromAddress: string, comment = ""): Promise<any> => {
   try {
     console.log("DETAILS:: ", token, amount, fromAddress, comment);
     if (!token || String(token).trim().length <= 0) {
@@ -107,18 +100,11 @@ export const transferToken = async (
       tokenAddress = tokenContract.address;
     }
 
-    const stableAddress = await kit.registry.addressFor(CeloContract.StableToken)
-    const baseNonce = await kit.connection.nonce(fromAddress)
-
+    const stableAddress = await kit.registry.addressFor(CeloContract.StableToken);
+    const baseNonce = await kit.connection.nonce(fromAddress);
 
     const encodedData = ethers.utils.defaultAbiCoder
-      .encode(
-        ["address", "uint256"],
-        [
-          process.env.REACT_APP_CELO_SINK,
-          kit.web3.utils.toWei(String(1), "ether"),
-        ]
-      )
+      .encode(["address", "uint256"], [process.env.REACT_APP_CELO_SINK, kit.web3.utils.toWei(String(1), "ether")])
       .substring(2);
 
     // @ts-ignore
@@ -131,7 +117,7 @@ export const transferToken = async (
       from: fromAddress,
       to: fromAddress,
       data: transferData,
-    })
+    });
 
     const transactionParameters = {
       to: tokenAddress,
@@ -140,26 +126,26 @@ export const transferToken = async (
       estimatedGas: gasEstimate || 1000,
       nonce: baseNonce + 0,
       feeCurrencyAddress: stableAddress,
-      value: '0',
+      value: "0",
     };
 
-    try{
+    try {
       const resp = await requestValoraTransaction(kit, [transactionParameters]);
       if (resp.type === DappKitRequestTypes.SIGN_TX && resp.status === DappKitResponseStatus.SUCCESS) {
-        const sent = web3.eth.sendSignedTransaction(resp.rawTxs[0])
+        const sent = web3.eth.sendSignedTransaction(resp.rawTxs[0]);
         return new Promise((resolve, reject) => {
-          sent.on('transactionHash', (hash) => {
-            resolve({hash, destinationAddress: tokenAddress})
-          })
-          sent.catch((err) => reject(err))
-        })
+          sent.on("transactionHash", (hash) => {
+            resolve({ hash, destinationAddress: tokenAddress });
+          });
+          sent.catch((err) => reject(err));
+        });
       }
     } catch (e) {
-      console.error('[Valora] Failed to send transaction', e)
-      throw e
+      console.error("[Valora] Failed to send transaction", e);
+      throw e;
     }
   } catch (err) {
-    console.log("Error ", err)
+    console.log("Error ", err);
     return Promise.reject(err);
   }
 };

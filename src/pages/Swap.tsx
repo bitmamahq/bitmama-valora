@@ -18,6 +18,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
+import debounce from "lodash/debounce";
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Button, Input, Select } from "../components";
@@ -29,7 +30,7 @@ import { getExchangeRate as getRate, sendTxRequest } from "../utils/bitmamaLib";
 import { transferToken, getBalance } from "../utils/celo";
 import { localStorageKey, requestIdKey } from "../utils/valoraLib";
 import { CheckCircleIcon } from "@chakra-ui/icons";
-import { isNaN, debounce } from "lodash";
+import { isNaN } from "lodash";
 
 type FiatType = "ng" | "gh";
 type TransferType = "bank" | "mobileMoney";
@@ -87,8 +88,7 @@ function Swap(props: RouterProps & { path: string }) {
   const [resolveAccount, { data: bankDetail, isLoading: fetchingDetail, error: bankDetailError }] = useResolveAccountMutation();
 
   const isApprovable = () => {
-    if ((connected || true) && _balance && Number(sendValue) <= _balance && accountNumber?.length && fiat && token && bankDetail?.account_name)
-      return true;
+    if ((connected || true) && _balance && Number(sendValue) <= _balance && accountNumber?.length && fiat && token && bankDetail?.account_name) return true;
     return false;
   };
 
@@ -101,7 +101,6 @@ function Swap(props: RouterProps & { path: string }) {
         if (!trans) throw new Error("Unable to complete transaction");
         if (!trans.hash) throw new Error("Unable to complete transaction");
         setApprovingState("completed");
-
         const txPayload = {
           sourceToken: token,
           destinationFiat: fiat === "ng" ? "ngn" : "ghs",
@@ -258,16 +257,28 @@ function Swap(props: RouterProps & { path: string }) {
     const destination = fiatMap[(_fiat ?? fiat) as FiatType];
 
     if (!source || !destination) return;
+
     const inputSource = e.target.name;
+    // console.log(
+    //   "INPUT SOURCE",
+    //   inputSource,
+    //   source,
+    //   destination,
+    //   _send ?? sendValue,
+    //   _receive ?? receiveValue
+    // );
+
     if (_send || sendValue || _receive || receiveValue) setCheckingRate(true);
 
     const {
       data: { message },
     } = await getRate(source, destination);
-
     const rate = (message as IExchangeRate).sell;
+
     const receiveAmount = Number(rate * ((_send ?? sendValue) as number)).toFixed(4);
+
     const sendAmount = Number(((_receive ?? receiveAmount) as number) / rate).toFixed(4);
+
     setCheckingRate(false);
 
     if (inputSource === "receive" || inputSource === "crypto" || inputSource === "send") receiveAmount && setReceiveValue(receiveAmount);
@@ -286,6 +297,8 @@ function Swap(props: RouterProps & { path: string }) {
     ),
     [resolveAccount]
   );
+
+  // console.log("BANK DATA", bankDetail);
 
   const handleFiat = (e: any) => {
     setFiat(e.target.value);
@@ -595,7 +608,7 @@ function Swap(props: RouterProps & { path: string }) {
                           <Box
                             as="button"
                             onClick={() => {
-                              navigate(`/`).then();
+                              navigate(`/`);
                               closeRef.current = setTimeout(() => window.close(), 1000);
                             }}
                             fontSize="12px"
