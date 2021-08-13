@@ -7,7 +7,7 @@ import {
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
 import debounce from "lodash/debounce";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Button, Input, Select } from "../components";
 import { IExchangeRate } from "../interfaces";
@@ -215,7 +215,7 @@ function Swap(props: RouterProps & { path: string }) {
 
   useEffect(() => {
     return () => {
-      if(closeRef) clearTimeout(closeRef)
+      if(closeRef.current) clearTimeout(closeRef.current)
       !isCompletedProcess && window.confirm("Are you sure you want to discard your changes?")
     }
     // eslint-disable-next-line
@@ -710,7 +710,7 @@ function Swap(props: RouterProps & { path: string }) {
                           <Box as="button" onClick={
                             () => {
                               navigate(`/`);
-                              closeRef = setTimeout(() => window.close(), 1000);
+                              closeRef.current = setTimeout(() => window.close(), 1000);
                             }
                           } fontSize="12px" fontWeight="200" color="grey">
                             Back Home
