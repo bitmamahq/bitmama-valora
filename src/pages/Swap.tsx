@@ -37,6 +37,7 @@ function Swap(props: RouterProps & { path: string }) {
   const [token, setToken] = useState<TokenType>();
   const [sendValue, setSendValue] = useState<string>();
   const [receiveValue, setReceiveValue] = useState<string>();
+  const [isCompletedProcess, setIsCompletedProcess] = useState(false);
   const [showField, setShowField] = useState({
     unit: true, amount: true
   });
@@ -99,16 +100,17 @@ function Swap(props: RouterProps & { path: string }) {
 
   const submitTransaction = async () => {
     try {
-    console.log(
-      "BUTTON PRESSED:::",
-      accountNumber,
-      token,
-      fiat,
-      sendValue,
-      receiveValue,
-      transferMethod,
-      bankCode
-    );
+      setIsCompletedProcess(false);
+    // console.log(
+    //   "BUTTON PRESSED:::",
+    //   accountNumber,
+    //   token,
+    //   fiat,
+    //   sendValue,
+    //   receiveValue,
+    //   transferMethod,
+    //   bankCode
+    // );
     if(isApprovable()) {
       setApprovingState("processing")
       const trans = await transferToken(
@@ -128,7 +130,7 @@ function Swap(props: RouterProps & { path: string }) {
         phoneNumber: providedData.phone || "",
         fiatAmount: Number(receiveValue),
         sourceAddress: providedData?.address,
-        txHash: trans?.hash,
+        transactionHash: trans?.hash,
         destinationAddress: trans.destinationAddress,
         paymentDetails: {
           bankCode: bankCode,
@@ -137,8 +139,8 @@ function Swap(props: RouterProps & { path: string }) {
           accountName: bankDetail?.account_name ?? ""
         },
       }
-      console.log({txPayload})
       await sendTxRequest(txPayload);
+      setIsCompletedProcess(true);
       return trans?.hash;
     } else {
       toast({
@@ -164,7 +166,6 @@ function Swap(props: RouterProps & { path: string }) {
 
   const handleTabState = async() => {
     if(!currentTab) {
-      console.log("handling tab state")
       const type = new URLSearchParams(props?.location?.search).get("type");
       const status = new URLSearchParams(props?.location?.search).get("status");
       const requestId = new URLSearchParams(props?.location?.search).get("requestId");
@@ -179,21 +180,13 @@ function Swap(props: RouterProps & { path: string }) {
       if(type && status && requestId && String(requestId).includes("signTransaction")) {
         setCurrentTab("redirectedTab");
         const value = await localStorage.getItem(requestIdKey);
-        console.log({type, status, requestId, value});
         if(value && (requestId === value)) {
           await localStorage.setItem(localStorageKey, window.location.href)
-          console.log("Waiting on current window", window.location.href)
-          console.log('Intentional delay for 5secs')
-          // setTimeout(function() {
-            // window.history.go(-1);
-          //   // window.history.back();
-          // }, 5000);
+          setTimeout(function() {
+            window.history.go(-1);
+            // window.history.back();
+          }, 3000);
         }
-        // wait for a while === for debugging
-        setTimeout(async function() {
-          console.log("done debugging??")
-            await Promise.resolve(setTimeout(Promise.resolve, 10000000));
-          }, 6000)
       } else {
         let balance = 0;
         const acceptableUnit = ["celo", "ceur", "cusd"];
@@ -203,7 +196,6 @@ function Swap(props: RouterProps & { path: string }) {
           if(isNaN(balance)) balance = 0;
         }
         setProvidedData({email, phone, address, balance: Number(balance ?? 0)});
-        console.log("field ===> ", coin, amount, balance)
         if(coin && acceptableUnit.includes(coin) && !isNaN(amount)) {
           setShowField({
             unit: false,
@@ -218,11 +210,10 @@ function Swap(props: RouterProps & { path: string }) {
   }
 
   useEffect(() => {
-    
     return () => {
-      2+2===5 && window.confirm("Are you sure you want to close this window?")
+      !isCompletedProcess && window.confirm("Are you sure you want to discard your changes?")
     }
-  }, [])
+  }, [isCompletedProcess])
 
   useEffect(() => {
     handleTabState()
@@ -680,7 +671,7 @@ function Swap(props: RouterProps & { path: string }) {
                       await submitTransaction();
                     }}
                     // disabled={!isApprovable()}
-                    disabled={approvingState === "processing" || approvingState === "completed"}
+                    disabled={!isApprovable() || approvingState === "processing" || approvingState === "completed"}
                   >
                     {approvingState === "processing" ? 
                       <CircularProgress

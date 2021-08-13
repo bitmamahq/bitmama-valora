@@ -26,7 +26,7 @@ type TxPayload = {
   fiatAmount: number,
   sourceAddress: string,
   paymentDetails: Record<string, string>,
-  txHash: string,
+  transactionHash: string,
   destinationAddress: string,
 }
 
