@@ -152,16 +152,18 @@ function Swap(props: RouterProps & { path: string }) {
           isClosable: true,
         });
     }
-    } catch(err) {
-      console.log({err})
-        toast({
-          title: "Oops!! Something went wrong",
-          description: String(err),
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-
+    } catch(error) {
+      let err = String(error)
+      if (error?.isAxiosError) {
+				err = error?.response?.data?.message || "Something went wrong";
+			} 
+      toast({
+        title: "Oops!! Something went wrong",
+        description: String(err),
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     }
   };
 
@@ -177,7 +179,6 @@ function Swap(props: RouterProps & { path: string }) {
       const email = new URLSearchParams(props?.location?.search).get("email") || "";
       const phone = new URLSearchParams(props?.location?.search).get("phone") || "";
 
-  console.log({type, status, requestId})
       if(type && status && requestId && String(requestId).includes("signTransaction")) {
         setCurrentTab("redirectedTab");
         const value = await localStorage.getItem(requestIdKey);
@@ -214,7 +215,8 @@ function Swap(props: RouterProps & { path: string }) {
     return () => {
       !isCompletedProcess && window.confirm("Are you sure you want to discard your changes?")
     }
-  }, [isCompletedProcess])
+    // eslint-disable-next-line
+  }, [])
 
   useEffect(() => {
     handleTabState()
