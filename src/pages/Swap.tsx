@@ -22,7 +22,7 @@ import {
 } from "../slice/wallet";
 import { AppDispatch } from "../store";
 import { getExchangeRate as getRate, sendTxRequest } from "../utils/bitmamaLib";
-import { transferToken } from "../utils/celo";
+import { transferToken, getBalance } from "../utils/celo";
 import { localStorageKey, requestIdKey } from "../utils/valoraLib";
 import { CheckCircleIcon } from '@chakra-ui/icons'
 
