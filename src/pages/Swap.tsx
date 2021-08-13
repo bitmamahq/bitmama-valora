@@ -114,7 +114,7 @@ function Swap(props: RouterProps & { path: string }) {
           destinationAddress: trans.destinationAddress,
           paymentDetails: {
             bankCode: bankCode,
-            bankName: String((data.filter((b) => b.code === bankCode) || [{ name: "" }])[0].name),
+            bankName: String(((data || [{code: "", name: ""}]).filter((b) => b.code === bankCode) || [{ name: "" }])[0].name),
             accountNumber: accountNumber,
             accountName: bankDetail?.account_name ?? "",
           },
