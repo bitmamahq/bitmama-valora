@@ -1,25 +1,21 @@
-import { RepeatIcon } from "@chakra-ui/icons";
+import { CheckCircleIcon, RepeatIcon } from "@chakra-ui/icons";
 import {
   Badge,
-  Box,
-  CircularProgress,
-  Container,
-  FormControl,
-  Heading,
-  Center,
-  Flex,
-  HStack,
+  Box, Center, CircularProgress,
+  Container, Flex, FormControl,
+  Heading, HStack,
   IconButton,
   Image,
   InputGroup,
   InputLeftElement,
   InputRightElement,
   useToast,
-  VStack,
+  VStack
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
+import { isNaN } from "lodash";
 import debounce from "lodash/debounce";
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Button, Input, Select } from "../components";
 import { IExchangeRate } from "../interfaces";
@@ -27,10 +23,8 @@ import { useGetBanksByCountryQuery, useResolveAccountMutation } from "../service
 import { getWalletBalance, selectWallet, setWalletDetails } from "../slice/wallet";
 import { AppDispatch } from "../store";
 import { getExchangeRate as getRate, sendTxRequest } from "../utils/bitmamaLib";
-import { transferToken, getBalance } from "../utils/celo";
+import { getBalance, transferToken } from "../utils/celo";
 import { localStorageKey, requestIdKey } from "../utils/valoraLib";
-import { CheckCircleIcon } from "@chakra-ui/icons";
-import { isNaN } from "lodash";
 
 type FiatType = "ng" | "gh";
 type TransferType = "bank" | "mobileMoney";
@@ -65,7 +59,7 @@ function Swap(props: RouterProps & { path: string }) {
   const [skipBankListLoad, setSkipBankListLoad] = useState(true);
 
   const toast = useToast();
-  const closeRef = useRef();
+  const closeRef = useRef<Timeout>();
   const dispatch = useDispatch<AppDispatch>();
 
   const { connected, balance, balanceStatus } = useSelector(selectWallet);
@@ -131,7 +125,7 @@ function Swap(props: RouterProps & { path: string }) {
           isClosable: true,
         });
       }
-    } catch (error) {
+    } catch (error:any) {
       let err = String(error);
       if (error?.isAxiosError) {
         err = error?.response?.data?.message || "Something went wrong";
@@ -391,7 +385,6 @@ function Swap(props: RouterProps & { path: string }) {
                           fontSize=".85rem"
                           value={token ?? ""}
                           onChange={handleToken}
-                          disabled={!showField.unit || approvingState === "processing"}
                           isReadOnly={!showField.unit || approvingState === "processing"}
                           placeholder="Choose Token"
                         >
@@ -455,7 +448,6 @@ function Swap(props: RouterProps & { path: string }) {
                             name="receive"
                             fontSize=".85rem"
                             value={fiat || ""}
-                            disabled={approvingState === "processing"}
                             isReadOnly={approvingState === "processing"}
                             onChange={handleFiat}
                             placeholder="Choose Fiat"
@@ -492,7 +484,6 @@ function Swap(props: RouterProps & { path: string }) {
                           value={transferMethod || ""}
                           onChange={handleTransferMethod}
                           placeholder="Choose Transfer Method"
-                          disabled={approvingState === "processing"}
                           isReadOnly={approvingState === "processing"}
                         >
                           <option value="bank">Bank Transfer</option>
@@ -513,7 +504,6 @@ function Swap(props: RouterProps & { path: string }) {
                             fontSize=".85rem"
                             value={bankCode || ""}
                             onChange={handleBankCode}
-                            disabled={approvingState === "processing"}
                             isReadOnly={approvingState === "processing"}
                             placeholder="Choose Bank"
                             {...(data && data[0] && { defaultValue: data[0].code })}
