@@ -30,7 +30,7 @@ type TxPayload = {
   destinationAddress: string,
 }
 
-export const sendTxRequest = async (sourcePayload: TxPayload, destination: string) => {
+export const sendTxRequest = async (sourcePayload: TxPayload) => {
   try {
     const endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora`;
 

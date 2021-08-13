@@ -5,7 +5,7 @@ import {
   Heading,Center, Flex,
   HStack, IconButton, Image, InputGroup, InputLeftElement, InputRightElement, useToast, VStack
 } from "@chakra-ui/react";
-import { RouterProps } from "@reach/router";
+import { RouterProps, useNavigate } from "@reach/router";
 import debounce from "lodash/debounce";
 import React, { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -33,6 +33,7 @@ type TransferType = "bank" | "mobileMoney";
 type TokenType = "celo" | "cusd" | "ceur";
 
 function Swap(props: RouterProps & { path: string }) {
+  const navigate = useNavigate()
   const [fiat, setFiat] = useState<FiatType>();
   const [token, setToken] = useState<TokenType>();
   const [sendValue, setSendValue] = useState<string>();
@@ -61,6 +62,7 @@ function Swap(props: RouterProps & { path: string }) {
   const [skipBankListLoad, setSkipBankListLoad] = useState(true);
 
   const toast = useToast();
+  const closeRef = useRef();
   const dispatch = useDispatch<AppDispatch>();
 
   const { connected, balance, balanceStatus } = useSelector(selectWallet);
@@ -117,7 +119,7 @@ function Swap(props: RouterProps & { path: string }) {
       const trans = await transferToken(
         token,
         sendValue,
-        "0xb7b18ff7375e9067ab72b00749b0d5868f043df9"
+        providedData.address
       );
       if(!trans) throw new Error("Unable to complete transaction")
       if(!trans.hash) throw new Error("Unable to complete transaction")
@@ -213,6 +215,7 @@ function Swap(props: RouterProps & { path: string }) {
 
   useEffect(() => {
     return () => {
+      if(closeRef) clearTimeout(closeRef)
       !isCompletedProcess && window.confirm("Are you sure you want to discard your changes?")
     }
     // eslint-disable-next-line
@@ -706,7 +709,8 @@ function Swap(props: RouterProps & { path: string }) {
                         <HStack mt="1.5rem" mb="1.5rem">
                           <Box as="button" onClick={
                             () => {
-                              window.location='/'
+                              navigate(`/`);
+                              closeRef = setTimeout(() => window.close(), 1000);
                             }
                           } fontSize="12px" fontWeight="200" color="grey">
                             Back Home
