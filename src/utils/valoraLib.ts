@@ -150,7 +150,7 @@ export const requestValoraTransaction = async (
   await requestTxSig(kit as any, txs, {
     requestId,
     dappName: 'Bitmama',
-    callback: winow.location.origin + window.location.pathname,
+    callback: window.location.origin + window.location.pathname,
   })
   return await waitForSignedTxs(requestId)
 }

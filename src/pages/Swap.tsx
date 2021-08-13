@@ -92,7 +92,8 @@ function Swap(props: RouterProps & { path: string }) {
       Number(sendValue) <= _balance &&
       accountNumber?.length &&
       fiat &&
-      token
+      token &&
+      bankDetail?.account_name
     )
       return true;
     return false;
