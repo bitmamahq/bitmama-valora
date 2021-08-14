@@ -137,51 +137,51 @@ if (typeof window !== "undefined" && !navigator.userAgent.includes("iPhone")) {
 //   return await waitForSignedTxs(requestId);
 // };
 
-export const valoraTransaction = async (kit: ContractKit): Promise<any> => {
-  const requestId = "transfer";
-  const dappName = "Bitmama";
-
-  // Replace with your own account address and desired value in WEI to transfer
-  const transferToAccount = "0xbe3908aCEC362AF0382ebc56E06b82ce819b19E8";
-  const transferValue = "1";
-
-  // Create a transaction object using ContractKit
-  // @ts-ignore
-  const stableToken = await kit.contracts.getStableToken();
-  const txObject = stableToken.transfer(
-    transferToAccount,
-    kit.web3.utils.toWei(String(transferValue), "ether")
-  ).txo;
-
-  console.log("TXOBJ:: ", txObject);
-
-  // Send a request to the Celo wallet to send an update transaction to the HelloWorld contract
-  await requestTxSig(
-    // @ts-ignore
-    kit,
-    [
-      {
-        tx: txObject,
-        from: "0xBaff2Fbc4aFb436b39D93b6c5D5591704c561043",
-        to: stableToken.address,
-      },
-    ],
-    { requestId, dappName, callback: window.location.href }
-  );
-
-  let rawTx;
-  try {
-    const dappkitResponse = await waitForSignedTxs(requestId);
-    rawTx = dappkitResponse.rawTxs[0];
-  } catch (error) {
-    console.log(error);
-    return;
-  }
-
-  console.log("REW TX::: ", rawTx);
-
-  // Wait for transaction result and check for success
-  const tx = await kit.connection.sendSignedTransaction(rawTx);
-  const receipt = await tx.waitReceipt();
-  console.log({receipt})
-};
+// export const valoraTransaction = async (kit: ContractKit): Promise<any> => {
+//   const requestId = "transfer";
+//   const dappName = "Bitmama";
+//
+//   // Replace with your own account address and desired value in WEI to transfer
+//   const transferToAccount = "0xbe3908aCEC362AF0382ebc56E06b82ce819b19E8";
+//   const transferValue = "1";
+//
+//   // Create a transaction object using ContractKit
+//   // @ts-ignore
+//   const stableToken = await kit.contracts.getStableToken();
+//   const txObject = stableToken.transfer(
+//     transferToAccount,
+//     kit.web3.utils.toWei(String(transferValue), "ether")
+//   ).txo;
+//
+//   console.log("TXOBJ:: ", txObject);
+//
+//   // Send a request to the Celo wallet to send an update transaction to the HelloWorld contract
+//   await requestTxSig(
+//     // @ts-ignore
+//     kit,
+//     [
+//       {
+//         tx: txObject,
+//         from: "0xBaff2Fbc4aFb436b39D93b6c5D5591704c561043",
+//         to: stableToken.address,
+//       },
+//     ],
+//     { requestId, dappName, callback: window.location.href }
+//   );
+//
+//   let rawTx;
+//   try {
+//     const dappkitResponse = await waitForSignedTxs(requestId);
+//     rawTx = dappkitResponse.rawTxs[0];
+//   } catch (error) {
+//     console.log(error);
+//     return;
+//   }
+//
+//   console.log("REW TX::: ", rawTx);
+//
+//   // Wait for transaction result and check for success
+//   const tx = await kit.connection.sendSignedTransaction(rawTx);
+//   const receipt = await tx.waitReceipt();
+//   console.log({receipt})
+// };
