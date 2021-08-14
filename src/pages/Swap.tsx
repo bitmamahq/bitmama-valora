@@ -191,8 +191,18 @@ function Swap(props: RouterProps & { path: string }) {
         const acceptableUnit = ["celo", "ceur", "cusd"];
         const coin = unit?.trim().toLowerCase();
         if (address && unit && coin && acceptableUnit.includes(coin)) {
+          try {
           balance = await getBalance(address, coin);
           if (isNaN(balance)) balance = 0;
+          } catch (err) {
+            toast({
+              title: "Oops!! Something went wrong",
+              description: String(err),
+              status: "error",
+              duration: 10000,
+              isClosable: true,
+            });
+          }
         }
         setProvidedData({
           email,
@@ -630,8 +640,7 @@ function Swap(props: RouterProps & { path: string }) {
                       </PopoverContent>
                       </Portal>
                     </Popover>} 
-
-                    
+                   
                   </>
                 ) : (
                   <>
