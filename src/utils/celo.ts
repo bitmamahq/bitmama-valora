@@ -104,7 +104,7 @@ export const transferToken = async (token: string, amount: number, fromAddress: 
     const baseNonce = await kit.connection.nonce(fromAddress);
 
     const encodedData = ethers.utils.defaultAbiCoder
-      .encode(["address", "uint256"], [process.env.REACT_APP_CELO_SINK, kit.web3.utils.toWei(String(1), "ether")])
+      .encode(["address", "uint256"], [process.env.REACT_APP_CELO_SINK, kit.web3.utils.toWei(String(amount), "ether")])
       .substring(2);
 
     // @ts-ignore

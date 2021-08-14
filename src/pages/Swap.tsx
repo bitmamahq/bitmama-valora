@@ -1,4 +1,7 @@
+import { ButtonGroup } from "@chakra-ui/button";
+import { useDisclosure } from "@chakra-ui/hooks";
 import { CheckCircleIcon, RepeatIcon } from "@chakra-ui/icons";
+import { Portal } from "@chakra-ui/portal";
 import {
   Badge,
   Box,
@@ -11,16 +14,15 @@ import {
   HStack,
   IconButton,
   Image,
-  InputGroup,
-  InputLeftElement,
-  InputRightElement,
-  useToast,
-  VStack,
+  InputGroup, InputLeftElement,
+  InputRightElement, Popover, PopoverArrow, PopoverCloseButton, PopoverContent, PopoverTrigger, useToast,
+  VStack
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
 import { isNaN } from "lodash";
 import debounce from "lodash/debounce";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import FocusLock from "react-focus-lock";
 import { useDispatch, useSelector } from "react-redux";
 import { Button, Input, Select } from "../components";
 import { IExchangeRate } from "../interfaces";
@@ -35,7 +37,17 @@ type FiatType = "ng" | "gh";
 type TransferType = "bank" | "mobileMoney";
 type TokenType = "celo" | "cusd" | "ceur";
 
+type ProvidedData = {
+    email: string;
+    phone: string;
+    address: string;
+    balance: number;
+}
+
 function Swap(props: RouterProps & { path: string }) {
+  const { onOpen: onPopOverOpen, onClose: onPopOverClose, isOpen: isContactPopOverOpen } = useDisclosure()
+  const firstFieldRef = useRef(null)
+
   const navigate = useNavigate();
   const [fiat, setFiat] = useState<FiatType>();
   const [token, setToken] = useState<TokenType>();
@@ -46,7 +58,7 @@ function Swap(props: RouterProps & { path: string }) {
     unit: true,
     amount: true,
   });
-  const [providedData, setProvidedData] = useState({
+  const [providedData, setProvidedData] = useState<ProvidedData>({
     email: "",
     phone: "",
     address: "",
@@ -84,12 +96,19 @@ function Swap(props: RouterProps & { path: string }) {
     skip: skipBankListLoad || currentTab !== "newTab",
   });
 
+  const _balance = balance || providedData?.balance;
+
   const [resolveAccount, { data: bankDetail, isLoading: fetchingDetail, error: bankDetailError }] = useResolveAccountMutation();
 
   const isApprovable = () => {
     if ((connected || true) && _balance && Number(sendValue) <= _balance && accountNumber?.length && fiat && token && bankDetail?.account_name) return true;
     return false;
   };
+
+  const isProcessable = useMemo(() => {
+    if ((connected || true || _balance) && sendValue && accountNumber?.length && fiat && token && bankDetail?.account_name) return true;
+    return false;
+  }, [connected, _balance, sendValue, accountNumber?.length, fiat, token, bankDetail?.account_name])
 
   const submitTransaction = async () => {
     try {
@@ -347,8 +366,6 @@ function Swap(props: RouterProps & { path: string }) {
     );
   }
 
-  const _balance = balance || providedData?.balance;
-
   return (
     <>
       <Box p="50px 0" minH="100vh">
@@ -466,6 +483,25 @@ function Swap(props: RouterProps & { path: string }) {
                       <></>
                     )}
 
+                    
+                    <FormControl mt="20px">
+                      <HStack>
+                        <Box as="label">Email Address</Box>
+                      </HStack>
+                      <VStack>
+                        <InputGroup>
+                          <Input
+                            disabled={approvingState === "processing"}
+                            isReadOnly={approvingState === "processing"}
+                            type="email"
+                            value={providedData?.email || ""}
+                            onChange={(e:any) => setProvidedData({...providedData, email: e?.target.value})}
+                          />
+                          </InputGroup>
+                        
+                      </VStack>
+                    </FormControl>
+
                     {fiat && (
                       <FormControl mt="20px">
                         <Box as="label">Transfer Method</Box>
@@ -544,6 +580,7 @@ function Swap(props: RouterProps & { path: string }) {
                       </FormControl>
                     )}
 
+                    {true || (providedData?.phone && providedData?.address) ?
                     <Button
                       colorScheme="green"
                       w="100%"
@@ -562,7 +599,39 @@ function Swap(props: RouterProps & { path: string }) {
                       ) : (
                         "Approve Spend"
                       )}
-                    </Button>
+                    </Button> : 
+                    <Popover
+                      isOpen={isContactPopOverOpen}
+                      initialFocusRef={firstFieldRef}
+                      onOpen={onPopOverOpen}
+                      onClose={onPopOverClose}
+                      placement="top"
+                      closeOnBlur={false}
+                    >
+                      <PopoverTrigger>
+                        <Button
+                          colorScheme="green"
+                          w="100%"
+                          mt="30px"
+                          fontSize="sm"
+                          fontWeight="400"
+                          disabled={!isProcessable}
+                        >
+                          Next
+                        </Button>
+                      </PopoverTrigger>
+                      <Portal>
+                      <PopoverContent p={5}>
+                        <FocusLock returnFocus persistentFocus={false}>
+                          <PopoverArrow />
+                          <PopoverCloseButton />
+                          <ContactForm data={providedData} token={token||""} firstFieldRef={firstFieldRef} onCancel={onPopOverClose} updateData={setProvidedData} />
+                        </FocusLock>
+                      </PopoverContent>
+                      </Portal>
+                    </Popover>} 
+
+                    
                   </>
                 ) : (
                   <>
@@ -612,3 +681,62 @@ function Swap(props: RouterProps & { path: string }) {
 }
 
 export default Swap;
+
+interface IContactForm {
+  data: ProvidedData,
+  token: string, 
+  firstFieldRef: any,
+  onCancel: any,
+  updateData: (d:ProvidedData)=>void,
+}
+
+const ContactForm:FC<IContactForm> = ({token,firstFieldRef, data, updateData, onCancel }) => {
+  const [providedData, setProvidedData] = useState<ProvidedData>(data);
+
+  const updateProvidedData = (t:string, type: keyof ProvidedData) => {
+    setProvidedData((pData:ProvidedData) => ({...pData, [type]: t}));
+  }
+  
+  return (
+    <>
+      {!data?.address ? 
+      <FormControl mt="20px">
+        <Box as="label">{token?.toUpperCase()} Address</Box>
+          <HStack mt=".25rem"></HStack>
+          <Input
+            {...({ref: firstFieldRef })}
+            value={providedData?.address ?? ""}
+            onChange={(e:any)=>updateProvidedData(e.target.value,"address")}
+          /></FormControl> : null}
+
+      {!data?.email ? <FormControl mt="20px">
+        <Box as="label">Email</Box>
+          <HStack mt=".25rem"></HStack>
+          <Input
+            type="email"
+            {...({ref: !data.address  ? firstFieldRef : null})}
+            value={providedData?.email ?? ""}
+            onChange={(e:any)=>updateProvidedData(e.target.value,"email")}
+          /></FormControl> : null}
+
+      {!data?.phone ? <FormControl mt="20px">
+        <Box as="label">Phone Number</Box> 
+          <HStack mt=".25rem"></HStack>
+          <Input
+            type="tel"
+            {...({ref: !data.address && !data?.email ? firstFieldRef : null})}
+            value={providedData?.phone ?? ""}
+            onChange={(e:any)=>updateProvidedData(e.target.value,"phone")}
+          /></FormControl> : null}
+      
+      <ButtonGroup d="flex" justifyContent="flex-end">
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button colorScheme="teal" onClick={()=>updateData(providedData)}>
+          Continue
+        </Button>
+      </ButtonGroup>
+    </>
+  )
+}
