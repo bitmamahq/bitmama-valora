@@ -2,7 +2,7 @@ import { CeloContract, newKit, StableToken } from "@celo/contractkit";
 import { GoldTokenWrapper } from "@celo/contractkit/lib/wrappers/GoldTokenWrapper";
 import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWrapper";
 import { DappKitRequestTypes, DappKitResponseStatus } from "@celo/utils";
-import { ethers } from "ethers";
+// import { ethers } from "ethers";
 import { requestValoraTransaction } from "./valoraLib";
 import _ from "lodash";
 
