@@ -2,7 +2,7 @@ import { CeloContract, newKit, StableToken } from "@celo/contractkit";
 import { GoldTokenWrapper } from "@celo/contractkit/lib/wrappers/GoldTokenWrapper";
 import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWrapper";
 import { DappKitRequestTypes, DappKitResponseStatus } from "@celo/utils";
-// import { ethers } from "ethers";
+import { ethers } from "ethers";
 import { requestValoraTransaction } from "./valoraLib";
 import _ from "lodash";
 
@@ -135,7 +135,9 @@ export const transferToken = async (token: string, amount: number, fromAddress: 
     const baseNonce = await kit.connection.nonce(fromAddress);
 
     // @ts-ignore
-    const encodedData = tokenContract.transfer(process.env.REACT_APP_CELO_SINK as string, kit.web3.utils.toWei(String(amount), "ether")).txo.encodeABI();
+    const encodedData = tokenContract
+      .transfer(process.env.REACT_APP_CELO_SINK as string, kit.web3.utils.toWei(String(amount), "ether"))
+      .txo.encodeABI()
 
     // const encodedData = ethers.utils.defaultAbiCoder
     //   .encode(["address", "uint256"], [process.env.REACT_APP_CELO_SINK, kit.web3.utils.toWei(String(amount), "ether")])
@@ -144,6 +146,8 @@ export const transferToken = async (token: string, amount: number, fromAddress: 
     // @ts-ignore
     // const methodId = tokenContract.methodIds.transfer.substring(2);
     // const transferData = `0x${methodId}${encodedData}`;
+
+    // console.log('ENCODED DATA::: ', transferData, encodedData1)
 
     const gasEstimate = await kit.connection.estimateGas({
       feeCurrency: stableAddress,
@@ -156,10 +160,10 @@ export const transferToken = async (token: string, amount: number, fromAddress: 
       to: tokenAddress,
       from: fromAddress,
       txData: encodedData,
-      estimatedGas: gasEstimate,
-      nonce: baseNonce + 1,
+      estimatedGas: gasEstimate || 1000,
+      nonce: baseNonce,
       feeCurrencyAddress: stableAddress,
-      value: "0",
+      value: "0x0",
     };
 
     try {
