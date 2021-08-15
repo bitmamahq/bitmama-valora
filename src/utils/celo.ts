@@ -2,13 +2,14 @@ import { CeloContract, newKit, StableToken } from "@celo/contractkit";
 import { GoldTokenWrapper } from "@celo/contractkit/lib/wrappers/GoldTokenWrapper";
 import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWrapper";
 import { DappKitRequestTypes, DappKitResponseStatus } from "@celo/utils";
-import { ethers } from "ethers";
+// import { ethers } from "ethers";
 import { requestValoraTransaction } from "./valoraLib";
 import _ from "lodash";
 
 export const kit = newKit(process.env.REACT_APP_CELO_ENDPOINT as string);
 export const web3 = kit.web3;
 
+// Convert number with exponential(e) to long decimal
 const noExponents = (value: string | number) => {
   let data;
   if (typeof value === "number") {
@@ -133,30 +134,36 @@ export const transferToken = async (token: string, amount: number, fromAddress: 
     const stableAddress = await kit.registry.addressFor(CeloContract.StableToken);
     const baseNonce = await kit.connection.nonce(fromAddress);
 
-    const encodedData = ethers.utils.defaultAbiCoder
-      .encode(["address", "uint256"], [process.env.REACT_APP_CELO_SINK, kit.web3.utils.toWei(String(amount), "ether")])
-      .substring(2);
+    // @ts-ignore
+    const encodedData = tokenContract
+      .transfer(process.env.REACT_APP_CELO_SINK as string, kit.web3.utils.toWei(String(amount), "ether"))
+      .txo.encodeABI()
+
+    // const encodedData = ethers.utils.defaultAbiCoder
+    //   .encode(["address", "uint256"], [process.env.REACT_APP_CELO_SINK, kit.web3.utils.toWei(String(amount), "ether")])
+    //   .substring(2);
 
     // @ts-ignore
-    const methodId = tokenContract.methodIds.transfer.substring(2);
+    // const methodId = tokenContract.methodIds.transfer.substring(2);
+    // const transferData = `0x${methodId}${encodedData}`;
 
-    const transferData = `0x${methodId}${encodedData}`;
+    // console.log('ENCODED DATA::: ', transferData, encodedData1)
 
     const gasEstimate = await kit.connection.estimateGas({
       feeCurrency: stableAddress,
       from: fromAddress,
-      to: fromAddress,
-      data: transferData,
+      to: tokenAddress,
+      data: encodedData,
     });
 
     const transactionParameters = {
       to: tokenAddress,
       from: fromAddress,
-      txData: transferData,
+      txData: encodedData,
       estimatedGas: gasEstimate || 1000,
-      nonce: baseNonce + 0,
+      nonce: baseNonce,
       feeCurrencyAddress: stableAddress,
-      value: "0",
+      value: "0x0",
     };
 
     try {

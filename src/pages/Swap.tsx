@@ -392,7 +392,7 @@ function Swap(props: RouterProps & { path: string }) {
               <VStack>
                 <Image w="121px" h="48px" src="https://prod-doc.fra1.cdn.digitaloceanspaces.com/btm-assets/logo.png" />
                 <Heading textAlign="center" fontSize="2xl" m="20px 0 !important">
-                  Withdraw cEUR/cUSD
+                  Withdraw CELO/cEUR/cUSD
                 </Heading>
               </VStack>
 
