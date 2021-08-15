@@ -4,9 +4,35 @@ import { StableTokenWrapper } from "@celo/contractkit/lib/wrappers/StableTokenWr
 import { DappKitRequestTypes, DappKitResponseStatus } from "@celo/utils";
 import { ethers } from "ethers";
 import { requestValoraTransaction } from "./valoraLib";
+import _ from "lodash";
 
 export const kit = newKit(process.env.REACT_APP_CELO_ENDPOINT as string);
 export const web3 = kit.web3;
+
+const noExponents = (value: string | number) => {
+  let data;
+  if (typeof value === "number") {
+    data = String(value).split(/[eE]/);
+  } else {
+    data = value.split(/[eE]/);
+  }
+
+  if (data.length === 1) return data[0];
+
+  let z = "",
+    sign = value < 0 ? "-" : "",
+    str = data[0].replace(".", ""),
+    mag = Number(data[1]) + 1;
+
+  if (mag < 0) {
+    z = sign + "0.";
+    while (mag++) z += "0";
+    return z + str.replace(/^-/, "");
+  }
+  mag -= str.length;
+  while (mag--) z += "0";
+  return str + z;
+};
 
 export const getBalance = async (address: string, token: string) => {
   try {
@@ -24,24 +50,27 @@ export const getBalance = async (address: string, token: string) => {
       case "cusd": {
         const dollarToken = await kit.contracts.getStableToken(StableToken.cUSD);
         const celoBalance = await dollarToken.balanceOf(address);
+        const bnBalance = web3.utils.toBN(noExponents(celoBalance.toString()));
 
-        balance = Number(web3.utils.fromWei(celoBalance.toString(), "ether"));
+        balance = _.toNumber(web3.utils.fromWei(bnBalance.toString(), "ether"));
         break;
       }
 
       case "celo": {
         const goldToken = await kit.contracts.getGoldToken();
         const celoBalance = await goldToken.balanceOf(address);
+        const bnBalance = web3.utils.toBN(noExponents(celoBalance.toString()));
 
-        balance = Number(web3.utils.fromWei(celoBalance.toString(), "ether"));
+        balance = _.toNumber(web3.utils.fromWei(bnBalance.toString(), "ether"));
         break;
       }
 
       case "ceur": {
         const euroToken = await kit.contracts.getStableToken(StableToken.cEUR);
         const celoBalance = await euroToken.balanceOf(address);
+        const bnBalance = web3.utils.toBN(noExponents(celoBalance.toString()));
 
-        balance = Number(web3.utils.fromWei(celoBalance.toString(), "ether"));
+        balance = _.toNumber(web3.utils.fromWei(bnBalance.toString(), "ether"));
         break;
       }
 
@@ -52,6 +81,7 @@ export const getBalance = async (address: string, token: string) => {
 
     return balance;
   } catch (err) {
+    console.log("ERR::: ", err);
     return Promise.reject(err);
   }
 };
