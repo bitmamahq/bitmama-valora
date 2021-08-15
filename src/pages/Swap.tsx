@@ -14,9 +14,16 @@ import {
   HStack,
   IconButton,
   Image,
-  InputGroup, InputLeftElement,
-  InputRightElement, Popover, PopoverArrow, PopoverCloseButton, PopoverContent, PopoverTrigger, useToast,
-  VStack
+  InputGroup,
+  InputLeftElement,
+  InputRightElement,
+  Popover,
+  PopoverArrow,
+  PopoverCloseButton,
+  PopoverContent,
+  PopoverTrigger,
+  useToast,
+  VStack,
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
 import { isNaN } from "lodash";
@@ -38,15 +45,15 @@ type TransferType = "bank" | "mobileMoney";
 type TokenType = "celo" | "cusd" | "ceur";
 
 type ProvidedData = {
-    email: string;
-    phone: string;
-    address: string;
-    balance: number;
-}
+  email: string;
+  phone: string;
+  address: string;
+  balance: number;
+};
 
 function Swap(props: RouterProps & { path: string }) {
-  const { onOpen: onPopOverOpen, onClose: onPopOverClose, isOpen: isContactPopOverOpen } = useDisclosure()
-  const firstFieldRef = useRef(null)
+  const { onOpen: onPopOverOpen, onClose: onPopOverClose, isOpen: isContactPopOverOpen } = useDisclosure();
+  const firstFieldRef = useRef(null);
 
   const navigate = useNavigate();
   const [fiat, setFiat] = useState<FiatType>();
@@ -108,7 +115,7 @@ function Swap(props: RouterProps & { path: string }) {
   const isProcessable = useMemo(() => {
     if ((connected || true || _balance) && sendValue && accountNumber?.length && fiat && token && bankDetail?.account_name) return true;
     return false;
-  }, [connected, _balance, sendValue, accountNumber?.length, fiat, token, bankDetail?.account_name])
+  }, [connected, _balance, sendValue, accountNumber?.length, fiat, token, bankDetail?.account_name]);
 
   const submitTransaction = async () => {
     try {
@@ -192,8 +199,8 @@ function Swap(props: RouterProps & { path: string }) {
         const coin = unit?.trim().toLowerCase();
         if (address && unit && coin && acceptableUnit.includes(coin)) {
           try {
-          balance = await getBalance(address, coin);
-          if (isNaN(balance)) balance = 0;
+            balance = await getBalance(address, coin);
+            if (isNaN(balance)) balance = 0;
           } catch (err) {
             toast({
               title: "Oops!! Something went wrong",
@@ -493,7 +500,6 @@ function Swap(props: RouterProps & { path: string }) {
                       <></>
                     )}
 
-                    
                     <FormControl mt="20px">
                       <HStack>
                         <Box as="label">Email Address</Box>
@@ -505,10 +511,9 @@ function Swap(props: RouterProps & { path: string }) {
                             isReadOnly={approvingState === "processing"}
                             type="email"
                             value={providedData?.email || ""}
-                            onChange={(e:any) => setProvidedData({...providedData, email: e?.target.value})}
+                            onChange={(e: any) => setProvidedData({ ...providedData, email: e?.target.value })}
                           />
-                          </InputGroup>
-                        
+                        </InputGroup>
                       </VStack>
                     </FormControl>
 
@@ -590,57 +595,57 @@ function Swap(props: RouterProps & { path: string }) {
                       </FormControl>
                     )}
 
-                    {true || (providedData?.phone && providedData?.address) ?
-                    <Button
-                      colorScheme="green"
-                      w="100%"
-                      mt="30px"
-                      fontSize="sm"
-                      fontWeight="400"
-                      onClick={async () => {
-                        await submitTransaction();
-                      }}
-                      disabled={!isApprovable() || approvingState === "processing" || approvingState === "completed"}
-                    >
-                      {approvingState === "processing" ? (
-                        <CircularProgress size="16px" isIndeterminate color="green.300" />
-                      ) : approvingState === "completed" ? (
-                        "Successful"
-                      ) : (
-                        "Approve Spend"
-                      )}
-                    </Button> : 
-                    <Popover
-                      isOpen={isContactPopOverOpen}
-                      initialFocusRef={firstFieldRef}
-                      onOpen={onPopOverOpen}
-                      onClose={onPopOverClose}
-                      placement="top"
-                      closeOnBlur={false}
-                    >
-                      <PopoverTrigger>
-                        <Button
-                          colorScheme="green"
-                          w="100%"
-                          mt="30px"
-                          fontSize="sm"
-                          fontWeight="400"
-                          disabled={!isProcessable}
-                        >
-                          Next
-                        </Button>
-                      </PopoverTrigger>
-                      <Portal>
-                      <PopoverContent p={5}>
-                        <FocusLock returnFocus persistentFocus={false}>
-                          <PopoverArrow />
-                          <PopoverCloseButton />
-                          <ContactForm data={providedData} token={token||""} firstFieldRef={firstFieldRef} onCancel={onPopOverClose} updateData={setProvidedData} />
-                        </FocusLock>
-                      </PopoverContent>
-                      </Portal>
-                    </Popover>} 
-                   
+                    {true || (providedData?.phone && providedData?.address) ? (
+                      <Button
+                        colorScheme="green"
+                        w="100%"
+                        mt="30px"
+                        fontSize="sm"
+                        fontWeight="400"
+                        onClick={async () => {
+                          await submitTransaction();
+                        }}
+                        disabled={!isApprovable() || approvingState === "processing" || approvingState === "completed"}
+                      >
+                        {approvingState === "processing" ? (
+                          <CircularProgress size="16px" isIndeterminate color="green.300" />
+                        ) : approvingState === "completed" ? (
+                          "Successful"
+                        ) : (
+                          "Approve Spend"
+                        )}
+                      </Button>
+                    ) : (
+                      <Popover
+                        isOpen={isContactPopOverOpen}
+                        initialFocusRef={firstFieldRef}
+                        onOpen={onPopOverOpen}
+                        onClose={onPopOverClose}
+                        placement="top"
+                        closeOnBlur={false}
+                      >
+                        <PopoverTrigger>
+                          <Button colorScheme="green" w="100%" mt="30px" fontSize="sm" fontWeight="400" disabled={!isProcessable}>
+                            Next
+                          </Button>
+                        </PopoverTrigger>
+                        <Portal>
+                          <PopoverContent p={5}>
+                            <FocusLock returnFocus persistentFocus={false}>
+                              <PopoverArrow />
+                              <PopoverCloseButton />
+                              <ContactForm
+                                data={providedData}
+                                token={token || ""}
+                                firstFieldRef={firstFieldRef}
+                                onCancel={onPopOverClose}
+                                updateData={setProvidedData}
+                              />
+                            </FocusLock>
+                          </PopoverContent>
+                        </Portal>
+                      </Popover>
+                    )}
                   </>
                 ) : (
                   <>
@@ -692,60 +697,64 @@ function Swap(props: RouterProps & { path: string }) {
 export default Swap;
 
 interface IContactForm {
-  data: ProvidedData,
-  token: string, 
-  firstFieldRef: any,
-  onCancel: any,
-  updateData: (d:ProvidedData)=>void,
+  data: ProvidedData;
+  token: string;
+  firstFieldRef: any;
+  onCancel: any;
+  updateData: (d: ProvidedData) => void;
 }
 
-const ContactForm:FC<IContactForm> = ({token,firstFieldRef, data, updateData, onCancel }) => {
+const ContactForm: FC<IContactForm> = ({ token, firstFieldRef, data, updateData, onCancel }) => {
   const [providedData, setProvidedData] = useState<ProvidedData>(data);
 
-  const updateProvidedData = (t:string, type: keyof ProvidedData) => {
-    setProvidedData((pData:ProvidedData) => ({...pData, [type]: t}));
-  }
-  
+  const updateProvidedData = (t: string, type: keyof ProvidedData) => {
+    setProvidedData((pData: ProvidedData) => ({ ...pData, [type]: t }));
+  };
+
   return (
     <>
-      {!data?.address ? 
-      <FormControl mt="20px">
-        <Box as="label">{token?.toUpperCase()} Address</Box>
+      {!data?.address ? (
+        <FormControl mt="20px">
+          <Box as="label">{token?.toUpperCase()} Address</Box>
           <HStack mt=".25rem"></HStack>
-          <Input
-            {...({ref: firstFieldRef })}
-            value={providedData?.address ?? ""}
-            onChange={(e:any)=>updateProvidedData(e.target.value,"address")}
-          /></FormControl> : null}
+          <Input {...{ ref: firstFieldRef }} value={providedData?.address ?? ""} onChange={(e: any) => updateProvidedData(e.target.value, "address")} />
+        </FormControl>
+      ) : null}
 
-      {!data?.email ? <FormControl mt="20px">
-        <Box as="label">Email</Box>
+      {!data?.email ? (
+        <FormControl mt="20px">
+          <Box as="label">Email</Box>
           <HStack mt=".25rem"></HStack>
           <Input
             type="email"
-            {...({ref: !data.address  ? firstFieldRef : null})}
+            {...{ ref: !data.address ? firstFieldRef : null }}
             value={providedData?.email ?? ""}
-            onChange={(e:any)=>updateProvidedData(e.target.value,"email")}
-          /></FormControl> : null}
+            onChange={(e: any) => updateProvidedData(e.target.value, "email")}
+          />
+        </FormControl>
+      ) : null}
 
-      {!data?.phone ? <FormControl mt="20px">
-        <Box as="label">Phone Number</Box> 
+      {!data?.phone ? (
+        <FormControl mt="20px">
+          <Box as="label">Phone Number</Box>
           <HStack mt=".25rem"></HStack>
           <Input
             type="tel"
-            {...({ref: !data.address && !data?.email ? firstFieldRef : null})}
+            {...{ ref: !data.address && !data?.email ? firstFieldRef : null }}
             value={providedData?.phone ?? ""}
-            onChange={(e:any)=>updateProvidedData(e.target.value,"phone")}
-          /></FormControl> : null}
-      
+            onChange={(e: any) => updateProvidedData(e.target.value, "phone")}
+          />
+        </FormControl>
+      ) : null}
+
       <ButtonGroup d="flex" justifyContent="flex-end">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button colorScheme="teal" onClick={()=>updateData(providedData)}>
+        <Button colorScheme="teal" onClick={() => updateData(providedData)}>
           Continue
         </Button>
       </ButtonGroup>
     </>
-  )
-}
+  );
+};
