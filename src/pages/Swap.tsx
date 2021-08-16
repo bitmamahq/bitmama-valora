@@ -259,7 +259,6 @@ function Swap(props: RouterProps & { path: string }) {
   };
 
   useEffect(() => {
-    setApprovingState("");
     return () => {
       if (closeRef.current) clearTimeout(closeRef.current);
       !isCompletedProcess && window.confirm("Are you sure you want to discard your changes?");
@@ -593,7 +592,7 @@ function Swap(props: RouterProps & { path: string }) {
                               </strong>
                             </Box>
                             </HStack>
-                            {isInvalidAmount ? <HStack>
+                            {isInvalidAmount && token ? <HStack>
                               <Box as="span" fontSize="12px" fontWeight="400" color="red.200">
                                 <p>{`Minimum amount is ${minimumToken[token]} ${String(token).toUpperCase()}`}</p>
                               </Box>
