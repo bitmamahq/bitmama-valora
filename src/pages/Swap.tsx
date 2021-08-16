@@ -297,7 +297,7 @@ function Swap(props: RouterProps & { path: string }) {
   useEffect(() => {
     if (currentTab === "newTab") {
       if (balance && !sendValue && showField.amount) {
-        handleSendValue({ target: { value: String(balance) } });
+        // handleSendValue({ target: { value: String(balance) } });
       }
     }
     // eslint-disable-next-line
@@ -327,7 +327,7 @@ function Swap(props: RouterProps & { path: string }) {
     
     const receiveAmount = Number(rate * ((_send ?? sendValue) as number)).toFixed(4);
 
-    setFiatUnitRate(Number(Number(1 / rate).toFixed(4)));
+    setFiatUnitRate(Number(Number(rate).toFixed(4)));
 
     const sendAmount = Number(((_receive ?? receiveAmount) as number) / rate).toFixed(4);
 
@@ -583,7 +583,7 @@ function Swap(props: RouterProps & { path: string }) {
                             <Box as="span" fontSize="12px" fontWeight="400" flexBasis={{ base: "50%" }} >
                               Balance:{" "}
                               <strong>
-                                {_balance} {token?.toUpperCase()}
+                                {Number(Number(_balance).toFixed(4))} {token?.toUpperCase()}
                               </strong>
                             </Box>
                             </HStack>
@@ -631,7 +631,7 @@ function Swap(props: RouterProps & { path: string }) {
                           <Box as="span" fontSize="12px" fontWeight="400">
                             Current Rate:{" "}
                             <strong>
-                              1 {String(fiat).toUpperCase()} / {currentRate} {token?.toUpperCase()}
+                              1 {String(token).toUpperCase()} / {Number(currentRate).toLocaleString()} {fiat?.toUpperCase()}
                             </strong>
                           </Box>
                         </HStack>
