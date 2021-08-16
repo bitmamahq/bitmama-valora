@@ -134,11 +134,6 @@ function Swap(props: RouterProps & { path: string }) {
 
   const [resolveAccount, { data: bankDetail, isLoading: fetchingDetail, error: bankDetailError }] = useResolveAccountMutation();
 
-  const isApprovable = () => {
-    if ((connected || true) && _balance && Number(sendValue) <= _balance && accountNumber?.length && fiat && token && bankDetail?.account_name) return true;
-    return false;
-  };
-
   const isProcessable = useMemo(() => {
     if ((connected || true || _balance) && providedData?.email && isValidEmail(providedData?.email) && sendValue && accountNumber?.length && fiat && token && ((fiat === "ng" && bankDetail?.account_name) || (fiat === "gh" && accountName && isValidName(accountName)) )) return true;
     return false;
