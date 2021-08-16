@@ -147,7 +147,7 @@ function Swap(props: RouterProps & { path: string }) {
   const submitTransaction = async () => {
     try {
       setIsCompletedProcess(false);
-      if (isApprovable()) {
+      if (isProcessable) {
         setApprovingState("processing");
         const trans = await transferToken(token || "", Number(sendValue) || 0, providedData.address || "");
         if (!trans) throw new Error("Unable to complete transaction");
