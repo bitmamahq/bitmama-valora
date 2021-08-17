@@ -9,13 +9,11 @@ import {
   CircularProgress,
   Container,
   Flex,
-  FormControl,
-  Heading,
+  FormControl, Heading,
   HStack,
   IconButton,
   Image,
-  InputGroup,
-  InputLeftElement,
+  InputGroup, InputLeftElement,
   InputRightElement,
   Popover,
   PopoverArrow,
@@ -23,7 +21,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   useToast,
-  VStack,
+  VStack
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
 import { isNaN } from "lodash";
@@ -40,6 +38,17 @@ import { getExchangeRate as getRate, sendTxRequest } from "../utils/bitmamaLib";
 import { getBalance, transferToken } from "../utils/celo";
 import { localStorageKey, requestIdKey } from "../utils/valoraLib";
 
+const isValidName = (name: string) => {
+  const re = /^[a-zA-Z-,]+(\s{0,1}[a-zA-Z-, ])*$/;
+  return name.length >= 2 && re.test(name) && name.length <= 30;
+}
+
+const isValidEmail = (email: string) => {
+  // eslint-disable-next-line
+  const re = /^\S+@\S+[\.][0-9a-z]+$/;
+  return re.test(email);
+}
+
 type FiatType = "ng" | "gh";
 type TransferType = "bank" | "mobileMoney";
 type TokenType = "celo" | "cusd" | "ceur";
@@ -50,6 +59,22 @@ type ProvidedData = {
   address: string;
   balance: number;
 };
+
+const handler = {
+  get: (target, property, receiver) => {
+    if (property in target) {
+      return target[property]
+    }
+    return 10
+  }
+}
+
+function minimumProxy(obj: Partial<Record<string,number>>) {
+    return new Proxy(obj, handler);
+}
+
+const minimumToken = minimumProxy({celo: 5});
+
 
 function Swap(props: RouterProps & { path: string }) {
   const { onOpen: onPopOverOpen, onClose: onPopOverClose, isOpen: isContactPopOverOpen } = useDisclosure();
@@ -75,7 +100,9 @@ function Swap(props: RouterProps & { path: string }) {
   const [transferMethod, setTransferMethod] = useState<TransferType>();
   const [checkingRate, setCheckingRate] = useState<boolean>(false);
   const [approvingState, setApprovingState] = useState("");
+  const [fiatUnitRate, setFiatUnitRate] = useState(0);
   const [currentTab, setCurrentTab] = useState<"" | "newTab" | "redirectedTab">("");
+  const [accountName, setAccountName] = useState("");
 
   const [bankCode, setBankCode] = useState<string | undefined>();
   const [accountNumber, setAccountNumber] = useState<string | undefined>();
@@ -107,20 +134,15 @@ function Swap(props: RouterProps & { path: string }) {
 
   const [resolveAccount, { data: bankDetail, isLoading: fetchingDetail, error: bankDetailError }] = useResolveAccountMutation();
 
-  const isApprovable = () => {
-    if ((connected || true) && _balance && Number(sendValue) <= _balance && accountNumber?.length && fiat && token && bankDetail?.account_name) return true;
-    return false;
-  };
-
   const isProcessable = useMemo(() => {
-    if ((connected || true || _balance) && sendValue && accountNumber?.length && fiat && token && bankDetail?.account_name) return true;
+    if ((connected || true || _balance) && providedData?.email && isValidEmail(providedData?.email) && sendValue && accountNumber?.length && fiat && token && ((fiat === "ng" && bankDetail?.account_name) || (fiat === "gh" && accountName && isValidName(accountName)) )) return true;
     return false;
-  }, [connected, _balance, sendValue, accountNumber?.length, fiat, token, bankDetail?.account_name]);
+  }, [connected, _balance, sendValue, accountNumber?.length, fiat, token, bankDetail?.account_name, accountName, providedData?.email]);
 
   const submitTransaction = async () => {
     try {
       setIsCompletedProcess(false);
-      if (isApprovable()) {
+      if (isProcessable) {
         setApprovingState("processing");
         const trans = await transferToken(token || "", Number(sendValue) || 0, providedData.address || "");
         if (!trans) throw new Error("Unable to complete transaction");
@@ -141,7 +163,7 @@ function Swap(props: RouterProps & { path: string }) {
             bankCode: bankCode,
             bankName: String(((data || [{ code: "", name: "" }]).filter((b) => b.code === bankCode) || [{ name: "" }])[0].name),
             accountNumber: accountNumber,
-            accountName: bankDetail?.account_name ?? "",
+            accountName: fiat === "ng" ? (bankDetail?.account_name ?? "") : (accountName ?? "") ,
           },
         };
         await sendTxRequest(txPayload);
@@ -157,6 +179,7 @@ function Swap(props: RouterProps & { path: string }) {
         });
       }
     } catch (error: any) {
+      setApprovingState("");
       let err = String(error);
       if (error?.isAxiosError) {
         err = error?.response?.data?.message || "Something went wrong";
@@ -220,7 +243,7 @@ function Swap(props: RouterProps & { path: string }) {
         if (coin && acceptableUnit.includes(coin) && !isNaN(amount)) {
           setShowField({
             unit: false,
-            amount: false,
+            amount: amount ? false : true,
           });
           handleToken({ target: { value: coin } });
           handleSendValue({ target: { value: String(amount) } });
@@ -273,8 +296,8 @@ function Swap(props: RouterProps & { path: string }) {
 
   useEffect(() => {
     if (currentTab === "newTab") {
-      if (balance) {
-        handleSendValue({ target: { value: String(balance) } });
+      if (balance && !sendValue && showField.amount) {
+        // handleSendValue({ target: { value: String(balance) } });
       }
     }
     // eslint-disable-next-line
@@ -301,8 +324,10 @@ function Swap(props: RouterProps & { path: string }) {
       data: { message },
     } = await getRate(source, destination);
     const rate = (message as IExchangeRate).sell;
-
+    
     const receiveAmount = Number(rate * ((_send ?? sendValue) as number)).toFixed(4);
+
+    setFiatUnitRate(Number(Number(rate).toFixed(4)));
 
     const sendAmount = Number(((_receive ?? receiveAmount) as number) / rate).toFixed(4);
 
@@ -311,6 +336,24 @@ function Swap(props: RouterProps & { path: string }) {
     if (inputSource === "receive" || inputSource === "crypto" || inputSource === "send") receiveAmount && setReceiveValue(receiveAmount);
     if (inputSource === "fiat") setSendValue(sendAmount);
   };
+
+  const currentRate = fiatUnitRate;
+
+  type Debouncer = Partial<Record<string, ReturnType<typeof setTimeout>>>; 
+  type Debouncable = string; 
+  const debouncer = useRef<Debouncer>({});
+
+  const redebounce = useCallback((cb, functionName:Debouncable, delay:number) => {
+    let timeout = debouncer.current[functionName];
+    return function () {
+      if(timeout)  {
+        clearTimeout(timeout);
+        debouncer.current[functionName] = undefined;
+      }
+      debouncer.current[functionName] = setTimeout(cb, delay);
+    };
+    // eslint-disable-next-line
+  }, [])
 
   // eslint-disable-next-line
   const debouncedResolveAccount = useCallback(
@@ -343,12 +386,68 @@ function Swap(props: RouterProps & { path: string }) {
 
   const handleSendValue = (e: any) => {
     setSendValue(e.target.value);
-    debounce(async () => await getExchangeRate(e, { _send: e.target.value }), 1500)();
+    redebounce(async () => await getExchangeRate(e, { _send: e.target.value }), "handleSendValue", 1500)();
   };
+
+  // cleanups memory leaks
+  useEffect(() => {
+    const dc = debouncer.current
+    
+    return () => {
+      const debouncing = Object.keys(dc);
+      debouncing.forEach((d) => {
+        const timeout = dc[d];
+        if(timeout)  {
+          clearTimeout(timeout);
+          dc[d] = undefined;
+        }
+      })
+    }
+  }, [])
+
+  /* eslint-disable */
+  useEffect(() => {
+    if(!providedData?.address) {
+      redebounce(() => {
+          if(token) {
+            const addr = window.prompt(`Enter your ${token.toUpperCase()} address: `);
+            if(addr) {
+              if(debouncer.current["checkAddress"]) {
+                clearTimeout(debouncer.current["checkAddress"]);
+                debouncer.current["checkAddress"] = undefined;
+              }
+              setProvidedData({...providedData, address: addr})
+              let url = new URL(window.location.href);
+              let params = new URLSearchParams(url.search.slice(1));
+              if(!params.has("address")) params.append('address', addr);
+              if(!params.has("unit")) params.append('unit', token);
+              if(!params.has("amount") && sendValue) params.append('amount', sendValue);
+              location.replace(`/?${params}`);
+            } else {
+            toast({
+              title: "Oops!! Url format error",
+              description: `Address is missing in query`,
+              status: "error",
+              duration: showField?.unit ? 2000 : 20000,
+              isClosable: true,
+            });
+          }
+        }
+      }, "checkAddress", 4000)();
+    }
+    return () => {
+      if(debouncer.current["checkAddress"]) {
+        clearTimeout(debouncer.current["checkAddress"]);
+        debouncer.current["checkAddress"] = undefined;
+      }
+    }
+  }, [providedData?.address, showField.unit, token, sendValue])
+  /* eslint-enable */
+
 
   const handleReceiveValue = (e: any) => {
     setReceiveValue(e.target.value);
-    debounce(async () => await getExchangeRate(e, { _receive: e.target.value }), 2000)();
+    redebounce(async () => await getExchangeRate(e, { _receive: e.target.value }), "handleReceiveValue", 2000)();
   };
 
   const handleBankCode = (e: any) => {
@@ -357,7 +456,22 @@ function Swap(props: RouterProps & { path: string }) {
 
   const handleAccountNumber = (e: any) => {
     setAccountNumber(e.target.value);
-    debouncedResolveAccount(e.target.value, bankCode as string);
+    if(fiat === "ng") debouncedResolveAccount(e.target.value, bankCode as string);
+  };
+
+  const handleAccountName = (e: any) => {
+    redebounce(async () => {
+      if(!isValidName(e.target.value)) {
+        toast({
+          title: "Oops!! Invalid Input",
+          description: "Account name is invalid",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    }, "validateAccountName", 3000)();
+    setAccountName(e.target.value);
   };
 
   if (currentTab !== "newTab") {
@@ -382,6 +496,8 @@ function Swap(props: RouterProps & { path: string }) {
       </>
     );
   }
+
+  const isInvalidAmount = sendValue && token && Number(sendValue) < minimumToken[token];
 
   return (
     <>
@@ -411,7 +527,11 @@ function Swap(props: RouterProps & { path: string }) {
                           name="send"
                           fontSize=".85rem"
                           value={token ?? ""}
-                          onChange={handleToken}
+                          onChange={(e:any) => {
+                            if(!showField.unit || approvingState === "processing") return
+                            handleToken(e)
+                            }}
+                          // disabled={!showField.unit || approvingState === "processing"}
                           isReadOnly={!showField.unit || approvingState === "processing"}
                           placeholder="Choose Token"
                         >
@@ -446,6 +566,8 @@ function Swap(props: RouterProps & { path: string }) {
                             onChange={handleSendValue}
                             colorScheme="green"
                             type="number"
+                            // isInvalid={Boolean(sendValue && Number(sendValue) < 10)}
+                            isInvalid={isInvalidAmount ? true : false}
                             disabled={!token || approvingState === "processing"}
                             isReadOnly={!showField.amount || approvingState === "processing"}
                           />
@@ -456,13 +578,21 @@ function Swap(props: RouterProps & { path: string }) {
                       </HStack>
                       {_balance || connected ? (
                         <HStack mt="4px">
-                          {balanceStatus === "loading" && <CircularProgress size="12px" isIndeterminate color="green.300" />}
-                          <Box as="span" fontSize="12px" fontWeight="400">
-                            Balance:{" "}
-                            <strong>
-                              {_balance} {token?.toUpperCase()}
-                            </strong>
-                          </Box>
+                          <HStack width={"50%"}>
+                            {balanceStatus === "loading" && <CircularProgress size="12px" isIndeterminate color="green.300" />}
+                            <Box as="span" fontSize="10px" fontWeight="400" flexBasis={{ base: "50%" }} whiteSpace="nowrap" >
+                              Balance:{" "}
+                              <strong>
+                                {Number(Number(_balance).toFixed(4))} {token?.toUpperCase()}
+                              </strong>
+                            </Box>
+                            </HStack>
+                            {isInvalidAmount && token ? <HStack>
+                              <Box as="span" fontSize="12px" fontWeight="400" color="red.200">
+                                <p>{`Minimum amount is ${minimumToken[token]} ${String(token).toUpperCase()}`}</p>
+                              </Box>
+                            </HStack> : null}
+
                         </HStack>
                       ) : null}
                     </FormControl>
@@ -495,6 +625,17 @@ function Swap(props: RouterProps & { path: string }) {
                             {checkingRate && <InputRightElement children={<CircularProgress size="16px" isIndeterminate color="green.300" />} />}
                           </InputGroup>
                         </HStack>
+                        {currentRate && fiat ? (
+                        <HStack mt="4px">
+                          {balanceStatus === "loading" && <CircularProgress size="12px" isIndeterminate color="green.300" />}
+                          <Box as="span" fontSize="10px" fontWeight="400">
+                            Current Rate:{" "}
+                            <strong>
+                              1 {String(token).toUpperCase()} / {Number(currentRate).toLocaleString()} {fiat?.toUpperCase()}
+                            </strong>
+                          </Box>
+                        </HStack>
+                      ) : null}
                       </FormControl>
                     ) : (
                       <></>
@@ -510,8 +651,22 @@ function Swap(props: RouterProps & { path: string }) {
                             disabled={approvingState === "processing"}
                             isReadOnly={approvingState === "processing"}
                             type="email"
+                            isInvalid={providedData?.email && !isValidEmail(providedData?.email) ? true : false}
                             value={providedData?.email || ""}
-                            onChange={(e: any) => setProvidedData({ ...providedData, email: e?.target.value })}
+                            onChange={(e: any) => {
+                              redebounce(async () => {
+                                if(!isValidEmail(e.target.value)) {
+                                  toast({
+                                    title: "Oops!! Invalid Input",
+                                    description: "Email is invalid",
+                                    status: "error",
+                                    duration: 3000,
+                                    isClosable: true,
+                                  });
+                                }
+                              }, "validateEmail", 3000)();
+                              setProvidedData({ ...providedData, email: e?.target.value });
+                            }}
                           />
                         </InputGroup>
                       </VStack>
@@ -528,8 +683,8 @@ function Swap(props: RouterProps & { path: string }) {
                           placeholder="Choose Transfer Method"
                           isReadOnly={approvingState === "processing"}
                         >
-                          <option value="bank">Bank Transfer</option>
-                          {fiat === "gh" && <option value="mobileMoney">Mobile Money</option>}
+                          <option value="bank">{fiat === "gh" ? "Bank/Mobile Money" : "Bank Transfer"}</option>
+                          {/* {fiat === "gh" && <option value="mobileMoney">Mobile Money</option>} */}
                         </Select>
                       </FormControl>
                     )}
@@ -556,41 +711,44 @@ function Swap(props: RouterProps & { path: string }) {
                               </option>
                             ))}
                           </Select>
-                          <InputGroup>
-                            <Input
-                              disabled={!bankCode || approvingState === "processing"}
-                              isReadOnly={approvingState === "processing"}
-                              type="number"
-                              placeholder="Account Number"
-                              value={accountNumber || ""}
-                              onChange={handleAccountNumber}
-                            />
-                            <InputRightElement
-                              children={
-                                fetchingDetail ? (
-                                  <CircularProgress size="16px" isIndeterminate color="green.300" />
-                                ) : (
-                                  <IconButton
-                                    size="xs"
-                                    as={Button}
-                                    aria-label="refetch details"
-                                    icon={<RepeatIcon />}
-                                    onClick={() =>
-                                      approvingState !== "processing" &&
-                                      accountNumber &&
-                                      resolveAccount({
-                                        accountNumber: accountNumber as string,
-                                        bankCode: bankCode as string,
-                                      })
-                                    }
-                                  />
-                                )
-                              }
-                            />
-                          </InputGroup>
-                          <InputGroup>
-                            <Input disabled type="text" placeholder="Account Name" defaultValue={bankDetail?.account_name ?? ""} />
-                          </InputGroup>
+                          {bankCode ?
+                            <>
+                              <InputGroup>
+                                <Input
+                                  disabled={!bankCode || approvingState === "processing"}
+                                  isReadOnly={approvingState === "processing"}
+                                  type="number"
+                                  placeholder="Account Number"
+                                  value={accountNumber || ""}
+                                  onChange={handleAccountNumber}
+                                />
+                                {fiat === "ng" ? <InputRightElement
+                                  children={
+                                    fetchingDetail ? (
+                                      <CircularProgress size="16px" isIndeterminate color="green.300" />
+                                    ) : (
+                                      <IconButton
+                                        size="xs"
+                                        as={Button}
+                                        aria-label="refetch details"
+                                        icon={<RepeatIcon />}
+                                        onClick={() =>
+                                          approvingState !== "processing" &&
+                                          accountNumber &&
+                                          resolveAccount({
+                                            accountNumber: accountNumber as string,
+                                            bankCode: bankCode as string,
+                                          })
+                                        }
+                                      />
+                                    )
+                                  }
+                                /> : null}
+                              </InputGroup>
+                              <InputGroup>
+                                <Input disabled={fiat === "ng"} type="text" placeholder="Account Name" defaultValue={bankDetail?.account_name ?? ""} onChange={handleAccountName} />
+                              </InputGroup>
+                            </> : null}
                         </VStack>
                       </FormControl>
                     )}
@@ -605,7 +763,7 @@ function Swap(props: RouterProps & { path: string }) {
                         onClick={async () => {
                           await submitTransaction();
                         }}
-                        disabled={!isApprovable() || approvingState === "processing" || approvingState === "completed"}
+                        disabled={!isProcessable || approvingState === "processing" || approvingState === "completed"}
                       >
                         {approvingState === "processing" ? (
                           <CircularProgress size="16px" isIndeterminate color="green.300" />
