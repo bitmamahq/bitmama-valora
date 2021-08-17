@@ -583,7 +583,7 @@ function Swap(props: RouterProps & { path: string }) {
                             <Box as="span" fontSize="10px" fontWeight="400" flexBasis={{ base: "50%" }} whiteSpace="nowrap" >
                               Balance:{" "}
                               <strong>
-                                229.5533{Number(Number(_balance).toFixed(4))} {token?.toUpperCase()}
+                                {Number(Number(_balance).toFixed(4))} {token?.toUpperCase()}
                               </strong>
                             </Box>
                             </HStack>
