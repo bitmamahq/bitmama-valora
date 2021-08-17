@@ -580,7 +580,7 @@ function Swap(props: RouterProps & { path: string }) {
                         <HStack mt="4px">
                           <HStack width={"50%"}>
                             {balanceStatus === "loading" && <CircularProgress size="12px" isIndeterminate color="green.300" />}
-                            <Box as="span" fontSize="10px" fontWeight="400" flexBasis={{ base: "50%" }} whiteSpace= "nowrap;" >
+                            <Box as="span" fontSize="10px" fontWeight="400" flexBasis={{ base: "50%" }} whiteSpace="nowrap" >
                               Balance:{" "}
                               <strong>
                                 229.5533{Number(Number(_balance).toFixed(4))} {token?.toUpperCase()}
