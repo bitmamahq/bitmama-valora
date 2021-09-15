@@ -1,7 +1,4 @@
-import { ButtonGroup } from "@chakra-ui/button";
-import { useDisclosure } from "@chakra-ui/hooks";
-import { CheckCircleIcon, RepeatIcon } from "@chakra-ui/icons";
-import { Portal } from "@chakra-ui/portal";
+import { CheckCircleIcon, CopyIcon } from "@chakra-ui/icons";
 import {
   Badge,
   Box,
@@ -11,39 +8,25 @@ import {
   Flex,
   FormControl,
   Heading,
-  HStack,
-  IconButton,
-  Image,
+  HStack, IconButton, Image,
   InputGroup,
   InputLeftElement,
-  InputRightElement,
-  Popover,
-  PopoverArrow,
-  PopoverCloseButton,
-  PopoverContent,
-  PopoverTrigger,
-  useToast,
-  VStack,
+  InputRightElement, Stack, Text, useToast,
+  VStack
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
 import { isNaN } from "lodash";
 import debounce from "lodash/debounce";
-import React, { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import FocusLock from "react-focus-lock";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Button, Input, Select } from "../../components";
+import { Button, ConfirmationModal, Input, Select } from "../../components";
 import { IExchangeRate } from "../../interfaces";
-import { useGetBanksByCountryQuery, useResolveAccountMutation } from "../../services/bankApi";
 import { getWalletBalance, selectWallet, setWalletDetails } from "../../slice/wallet";
 import { AppDispatch } from "../../store";
-import { getExchangeRate as getRate, sendTxRequest } from "../../utils/bitmamaLib";
-import { getBalance, transferToken } from "../../utils/celo";
+import { getExchangeRate as getRate, requestTxRef, TxBuyPayload } from "../../utils/bitmamaLib";
+import { getBalance } from "../../utils/celo";
+import formatter, { floatString, toUpper } from "../../utils/formatter";
 import { localStorageKey, requestIdKey } from "../../utils/valoraLib";
-
-const isValidName = (name: string) => {
-  const re = /^[a-zA-Z-,]+(\s{0,1}[a-zA-Z-, ])*$/;
-  return name.length >= 2 && re.test(name) && name.length <= 30;
-};
 
 const isValidEmail = (email: string) => {
   // eslint-disable-next-line
@@ -78,8 +61,6 @@ function minimumProxy(obj: Partial<Record<string, number>>) {
 const minimumToken = minimumProxy({ celo: 5 });
 
 function Buy(props: RouterProps & { path: string }) {
-  const { onOpen: onPopOverOpen, onClose: onPopOverClose, isOpen: isContactPopOverOpen } = useDisclosure();
-  const firstFieldRef = useRef(null);
 
   const navigate = useNavigate();
   const [fiat, setFiat] = useState<FiatType>();
@@ -100,15 +81,11 @@ function Buy(props: RouterProps & { path: string }) {
 
   const [transferMethod, setTransferMethod] = useState<TransferType>();
   const [checkingRate, setCheckingRate] = useState<boolean>(false);
-  const [approvingState, setApprovingState] = useState("");
+  const [approvingState, setApprovingState] = useState("stepone");
+  const [stepTwoData, setStepTwoData] = useState<TxBuyPayload | null>(null);
+  const [actionState, setActionState] = useState("");
   const [fiatUnitRate, setFiatUnitRate] = useState(0);
   const [currentTab, setCurrentTab] = useState<"" | "newTab" | "redirectedTab">("");
-  const [accountName, setAccountName] = useState("");
-
-  const [bankCode, setBankCode] = useState<string | undefined>();
-  const [accountNumber, setAccountNumber] = useState<string | undefined>();
-
-  const [skipBankListLoad, setSkipBankListLoad] = useState(true);
 
   const toast = useToast();
   const closeRef = useRef<any>();
@@ -123,17 +100,7 @@ function Buy(props: RouterProps & { path: string }) {
     _receive: number;
   }
 
-  const {
-    data,
-    isLoading,
-    error: bankListError,
-  } = useGetBanksByCountryQuery(fiat ?? "", {
-    skip: skipBankListLoad || currentTab !== "newTab",
-  });
-
   const _balance = balance || providedData?.balance;
-
-  const [resolveAccount, { data: bankDetail, isLoading: fetchingDetail, error: bankDetailError }] = useResolveAccountMutation();
 
   const isProcessable = useMemo(() => {
     if (
@@ -141,45 +108,57 @@ function Buy(props: RouterProps & { path: string }) {
       providedData?.email &&
       isValidEmail(providedData?.email) &&
       sendValue &&
-      accountNumber?.length &&
       fiat &&
       token &&
-      ((fiat === "ng" && bankDetail?.account_name) || (fiat === "gh" && accountName && isValidName(accountName)))
+      transferMethod
     )
       return true;
     return false;
-  }, [connected, _balance, sendValue, accountNumber?.length, fiat, token, bankDetail?.account_name, accountName, providedData?.email]);
+  }, [connected, _balance, transferMethod, sendValue, fiat, token, providedData?.email]);
 
   const submitTransaction = async () => {
     try {
       setIsCompletedProcess(false);
-      if (isProcessable) {
-        setApprovingState("processing");
-        const trans = await transferToken(token || "", Number(sendValue) || 0, providedData.address || "");
-        if (!trans) throw new Error("Unable to complete transaction");
-        if (!trans.hash) throw new Error("Unable to complete transaction");
-        setApprovingState("completed");
-        const txPayload = {
-          sourceToken: token,
-          destinationFiat: fiat === "ng" ? "ngn" : "ghs",
-          tokenAmount: Number(sendValue),
-          transferMethod: transferMethod === "bank" ? "bank-transfer" : "mobile-money",
-          email: providedData.email || "",
-          phoneNumber: providedData.phone || "",
-          fiatAmount: Number(receiveValue),
-          sourceAddress: providedData?.address,
-          transactionHash: trans?.hash,
-          destinationAddress: trans.destinationAddress,
-          paymentDetails: {
-            bankCode: bankCode,
-            bankName: String(((data || [{ code: "", name: "" }]).filter((b) => b.code === bankCode) || [{ name: "" }])[0].name),
-            accountNumber: accountNumber,
-            accountName: fiat === "ng" ? bankDetail?.account_name ?? "" : accountName ?? "",
-          },
-        };
-        await sendTxRequest(txPayload);
-        setIsCompletedProcess(true);
-        return trans?.hash;
+      if(approvingState === "stepone") {
+        if(isProcessable) {
+          setActionState("tosteptwo")
+          const txPayload = {
+            token,
+            fiat: fiat === "ng" ? "ngn" : "ghs",
+            tokenAmount: Number(sendValue),
+            transferMethod: transferMethod === "bank" ? "bank-transfer" : "mobile-money",
+            email: providedData.email || "",
+            phoneNumber: providedData.phone || "",
+            fiatAmount: Number(receiveValue),
+            sourceAddress: providedData?.address,
+          };
+          let resp = {
+            ...txPayload,
+            transactionRef: new Date().getTime().toString(36),
+            paymentDetails: transferMethod === "bank" ? {
+              bankCode: String(60543),
+              accountName: "Ayo Daniel",
+              bankName: "GTBank",
+              accountNumber: Math.floor(Math.random() * 8778332323),
+              type: "bank-transfer",
+            } : {
+              bankCode: String(60543),
+              network: "VODAFONE",
+              phoneNumber: Math.floor(Math.random() * 8778332323),
+              type: "mobile-money",
+            },
+            timeout: 15,
+            createdAt: new Date()
+          }
+          if(2+2===5) {
+            const respObj = await requestTxRef(txPayload);
+            resp = respObj.data as TxBuyPayload
+          }
+          setStepTwoData(resp)
+          setApprovingState("steptwo")
+          setActionState("")
+        }
+      } else if (isProcessable) {
       } else {
         toast({
           title: "Oops!! Something isn't right",
@@ -191,6 +170,7 @@ function Buy(props: RouterProps & { path: string }) {
       }
     } catch (error: any) {
       setApprovingState("");
+      setActionState("");
       let err = String(error);
       if (error?.isAxiosError) {
         err = error?.response?.data?.message || "Something went wrong";
@@ -267,7 +247,7 @@ function Buy(props: RouterProps & { path: string }) {
   useEffect(() => {
     return () => {
       if (closeRef.current) clearTimeout(closeRef.current);
-      !isCompletedProcess && window.confirm("Are you sure you want to discard your changes?");
+      !isCompletedProcess && window.confirm("Are you sure you want to discard your inputs?");
     };
     // eslint-disable-next-line
   }, []);
@@ -277,22 +257,8 @@ function Buy(props: RouterProps & { path: string }) {
     // eslint-disable-next-line
   }, [props?.location?.search, currentTab]);
 
-  useEffect(() => {
-    if (currentTab === "newTab") {
-      if (bankDetailError || bankListError) {
-        toast({
-          title: "Oops!! something went wrong",
-          description: ((bankDetailError ?? bankListError) as any)?.data.message,
-          status: "error",
-          duration: 2000,
-          isClosable: true,
-        });
-      }
-    }
-  }, [currentTab, bankListError, bankDetailError, toast]);
-
-  const phone = new URLSearchParams(props?.location?.search).get("phone");
-  const address = new URLSearchParams(props?.location?.search).get("address");
+  const phone = useMemo(() => new URLSearchParams(props?.location?.search).get("phone"), [props?.location?.search]);
+  const address = useMemo(() => new URLSearchParams(props?.location?.search).get("address"), [props?.location?.search]);
 
   useEffect(() => {
     if (phone && address) {
@@ -305,14 +271,10 @@ function Buy(props: RouterProps & { path: string }) {
     }
   }, [phone, address, dispatch]);
 
-  useEffect(() => {
-    if (currentTab === "newTab") {
-      if (balance && !sendValue && showField.amount) {
-        // handleSendValue({ target: { value: String(balance) } });
-      }
-    }
-    // eslint-disable-next-line
-  }, [currentTab, balance]);
+  const copyToClipboard = (text:any) => {
+    if(!text) return;
+    return;
+  }
 
   const getExchangeRate = async (
     e: any,
@@ -366,19 +328,6 @@ function Buy(props: RouterProps & { path: string }) {
     // eslint-disable-next-line
   }, []);
 
-  // eslint-disable-next-line
-  const debouncedResolveAccount = useCallback(
-    debounce(
-      (accountNumber, bankCode) =>
-        resolveAccount({
-          accountNumber,
-          bankCode,
-        }),
-      1500
-    ),
-    [resolveAccount]
-  );
-
   const handleFiat = (e: any) => {
     setFiat(e.target.value);
     debounce(async () => await getExchangeRate(e, { _fiat: e.target.value }), 500)();
@@ -392,7 +341,6 @@ function Buy(props: RouterProps & { path: string }) {
 
   const handleTransferMethod = (e: any) => {
     setTransferMethod(e.target.value);
-    if (fiat && e.target.value === "bank") setSkipBankListLoad(false);
   };
 
   const handleSendValue = (e: any) => {
@@ -459,37 +407,22 @@ function Buy(props: RouterProps & { path: string }) {
   }, [providedData?.address, showField.unit, token, sendValue]);
   /* eslint-enable */
 
+  const isInvalidAmount = sendValue && token && Number(sendValue) < minimumToken[token];
+
+  const errorInAmountField = useMemo(() => {
+    const isInvalidAmount = sendValue && token && Number(sendValue) < minimumToken[token];
+    let errorMsg = ""
+    if(isInvalidAmount) {
+      errorMsg = `Minimum amount is ${minimumToken[token]} ${String(token).toUpperCase()}`
+    } else if(sendValue && Number(sendValue) <= 0) {
+          // errorMsg = `Amount must be greater than 0`
+    }
+    return errorMsg;
+  }, [sendValue, token])
+
   const handleReceiveValue = (e: any) => {
     setReceiveValue(e.target.value);
     redebounce(async () => await getExchangeRate(e, { _receive: e.target.value }), "handleReceiveValue", 2000)();
-  };
-
-  const handleBankCode = (e: any) => {
-    setBankCode(e.target.value);
-  };
-
-  const handleAccountNumber = (e: any) => {
-    setAccountNumber(e.target.value);
-    if (fiat === "ng") debouncedResolveAccount(e.target.value, bankCode as string);
-  };
-
-  const handleAccountName = (e: any) => {
-    redebounce(
-      async () => {
-        if (!isValidName(e.target.value)) {
-          toast({
-            title: "Oops!! Invalid Input",
-            description: "Account name is invalid",
-            status: "error",
-            duration: 3000,
-            isClosable: true,
-          });
-        }
-      },
-      "validateAccountName",
-      3000
-    )();
-    setAccountName(e.target.value);
   };
 
   if (currentTab !== "newTab") {
@@ -515,30 +448,24 @@ function Buy(props: RouterProps & { path: string }) {
     );
   }
 
-  const isInvalidAmount = sendValue && token && Number(sendValue) < minimumToken[token];
-
   return (
     <>
-      {/* <Box p="50px 0" minH="100vh">
-        <Box bg="rgba(249,250,251,1)" h="100%">
-          <Container maxW={["container.xl", "xl"]} h="100%">
-            <VStack p={["40px 0", "40px"]}> */}
-      {/* <VStack>
-        <Image w="121px" h="48px" src="https://prod-doc.fra1.cdn.digitaloceanspaces.com/btm-assets/logo.png" />
-        <Heading textAlign="center" fontSize="2xl" m="20px 0 !important">
-          Withdraw CELO/cEUR/cUSD
-        </Heading>
-      </VStack> */}
-
       <Box as="form" boxShadow="base" p={["1rem 1.5rem", "2rem 2.5rem"]} w="100%" bg="white" borderRadius=".5rem">
-        {connected && approvingState !== "completed" && (
+        {connected && approvingState === "stepone" && (
           <Badge mb="20px" variant="solid" colorScheme="green">
             CONNECTED
           </Badge>
         )}
-        {approvingState !== "completed" ? (
+        {approvingState === "steptwo" ? (
+          <VStack>
+            <Heading textAlign="center" fontSize="md" m="20px 0 !important">
+              Copy the account details and the transaction reference to complete your payment
+            </Heading>
+        </VStack>
+        ) : null}
+        {["stepone", "steptwo"].includes(approvingState) ? (
           <>
-            <FormControl>
+            {approvingState === "stepone" ? <FormControl>
               <Box as="label">You Buy</Box>
               <HStack mt=".25rem">
                 <Select
@@ -546,11 +473,11 @@ function Buy(props: RouterProps & { path: string }) {
                   fontSize=".85rem"
                   value={token ?? ""}
                   onChange={(e: any) => {
-                    if (!showField.unit || approvingState === "processing") return;
+                    if (!showField.unit || actionState === "tosteptwo") return;
                     handleToken(e);
                   }}
-                  // disabled={!showField.unit || approvingState === "processing"}
-                  isReadOnly={!showField.unit || approvingState === "processing"}
+                  // disabled={!showField.unit || actionState === "tosteptwo"}
+                  isReadOnly={!showField.unit || actionState === "tosteptwo"}
                   placeholder="Choose Token"
                 >
                   <option value="celo">CELO</option>
@@ -564,7 +491,7 @@ function Buy(props: RouterProps & { path: string }) {
                       pl="8px"
                       children={
                         <Button
-                          disabled={approvingState === "processing"}
+                          disabled={actionState === "tosteptwo"}
                           onClick={() =>
                             handleSendValue({
                               target: { value: String(_balance) },
@@ -586,8 +513,8 @@ function Buy(props: RouterProps & { path: string }) {
                     type="number"
                     // isInvalid={Boolean(sendValue && Number(sendValue) < 10)}
                     isInvalid={isInvalidAmount ? true : false}
-                    disabled={!token || approvingState === "processing"}
-                    isReadOnly={!showField.amount || approvingState === "processing"}
+                    disabled={!token || actionState === "tosteptwo"}
+                    isReadOnly={!showField.amount || actionState === "tosteptwo"}
                   />
                   {checkingRate && !showField.amount && <InputRightElement children={<CircularProgress size="16px" isIndeterminate color="green.300" />} />}
                 </InputGroup>
@@ -597,32 +524,32 @@ function Buy(props: RouterProps & { path: string }) {
                   <HStack width={"50%"}>
                     {balanceStatus === "loading" && <CircularProgress size="12px" isIndeterminate color="green.300" />}
                     <Box as="span" fontSize="10px" fontWeight="400" flexBasis={{ base: "50%" }} whiteSpace="nowrap">
-                      Balance:{" "}
+                      Current Balance:{" "}
                       <strong>
                         {Number(Number(_balance).toFixed(4))} {token?.toUpperCase()}
                       </strong>
                     </Box>
                   </HStack>
-                  {isInvalidAmount && token ? (
+                  {errorInAmountField && token ? (
                     <HStack>
                       <Box as="span" fontSize="12px" fontWeight="400" color="red.200">
-                        <p>{`Minimum amount is ${minimumToken[token]} ${String(token).toUpperCase()}`}</p>
+                        <p>{errorInAmountField}</p>
                       </Box>
                     </HStack>
                   ) : null}
                 </HStack>
               ) : null}
-            </FormControl>
+            </FormControl> : null}
 
-            {approvingState !== "completed" ? (
+            {approvingState === "stepone" ? (
               <FormControl mt="20px">
-                <Box as="label">You Receive</Box>
+                <Box as="label">You Pay</Box>
                 <HStack mt=".25rem">
                   <Select
                     name="receive"
                     fontSize=".85rem"
-                    value={fiat || ""}
-                    isReadOnly={approvingState === "processing"}
+                    value={fiat ?? ""}
+                    isReadOnly={actionState === "tosteptwo"}
                     onChange={handleFiat}
                     placeholder="Choose Fiat"
                   >
@@ -634,7 +561,7 @@ function Buy(props: RouterProps & { path: string }) {
                     <Input
                       name="fiat"
                       value={receiveValue ?? ""}
-                      disabled={approvingState === "processing"}
+                      disabled={actionState === "tosteptwo"}
                       isReadOnly={!showField.amount}
                       onChange={handleReceiveValue}
                       type="number"
@@ -654,136 +581,268 @@ function Buy(props: RouterProps & { path: string }) {
                   </HStack>
                 ) : null}
               </FormControl>
-            ) : (
-              <></>
-            )}
+            ) : null}
+            
+            {approvingState === "steptwo" ? (
+              <>
+                <FormControl mt="20px">
+                  <HStack mt=".25rem">
+                    <Box bg="white" borderRadius="16px" h="fit-content">
+                      <Stack p="32px">
+                        <HStack
+                          alignItems="flex-start"
+                          justifyContent="space-between"
+                        >
+                          <Stack>
+                            <Text color="#4E4B66" fontSize="sm">
+                              Amount
+                            </Text>
+                            <Text
+                              fontSize="sm"
+                              fontWeight="bold"
+                              mt="0px !important"
+                            >
+                              {/* ₦12,000 */}
+                              {stepTwoData &&
+                                formatter(stepTwoData?.fiat ?? "").format(stepTwoData?._fiatAmount ?? 0)}{" "}
+                            </Text>
+                          </Stack>
+                          <Stack>
+                            <Text color="#4E4B66" fontSize="sm">
+                              Quantity
+                            </Text>
+                            <Text fontSize="sm" mt="0px !important">
+                              {floatString(stepTwoData?._tokenAmount ?? 0)}{" "}
+                              {toUpper(stepTwoData?.token ?? "")}
+                            </Text>
+                          </Stack>
+                          <Stack>
+                            <Text color="#4E4B66" fontSize="sm">
+                              Transaction Fee
+                            </Text>
+                            <Text mt="0px !important" fontSize="sm">
+                              {/* 19,190,000.00 */}
+                              {floatString(stepTwoData?._fee ?? 0)}{" "}
+                              {toUpper(stepTwoData?.token ?? "")}
+                            </Text>
+                          </Stack>
+                        </HStack>
 
-            <FormControl mt="20px">
-              <HStack>
-                <Box as="label">Email Address</Box>
-              </HStack>
-              <VStack>
-                <InputGroup>
-                  <Input
-                    disabled={approvingState === "processing"}
-                    isReadOnly={approvingState === "processing"}
-                    type="email"
-                    isInvalid={providedData?.email && !isValidEmail(providedData?.email) ? true : false}
-                    value={providedData?.email || ""}
-                    onChange={(e: any) => {
-                      redebounce(
-                        async () => {
-                          if (!isValidEmail(e.target.value)) {
-                            toast({
-                              title: "Oops!! Invalid Input",
-                              description: "Email is invalid",
-                              status: "error",
-                              duration: 3000,
-                              isClosable: true,
-                            });
+
+                        <Box
+                          mt="32px !important"
+                          border="1px solid #D9DBE9"
+                          bg="#F4F2FF"
+                          p="28px 26px"
+                          borderRadius="6px"
+                        >
+                          <Heading fontSize="sm">Account Details</Heading>
+                          {stepTwoData?.paymentDetails?.type === "mobile-money" ?
+                            (<HStack mt="18px" direction="row" gridGap="100px">
+                              <VStack alignItems="flex-start">
+                                <Text color="#4E4B66" fontSize="sm" mt="0px !important">
+                                  Network
+                                </Text>
+                                <Text color="#4E4B66" fontSize="sm" mt="18px !important">
+                                  Phone No.
+                                </Text>
+                              </VStack>
+
+                              <VStack alignItems="flex-start">
+                                <HStack mt="0px !important">
+                                  <Text fontSize="sm" mt="0 !important">
+                                    {/* MTN NG */}
+                                    {stepTwoData?.paymentDetails.network}
+                                  </Text>
+                                </HStack>
+
+                                <HStack mt="16px !important" justifyContent="flex-start">
+                                  <Text fontSize="sm">
+                                    {/* 0123456789 */}
+                                    {stepTwoData?.paymentDetails.phoneNumber}
+                                  </Text>
+                                  <IconButton
+                                    size="xs"
+                                    variant="ghost"
+                                    aria-label="copy"
+                                    icon={<CopyIcon color="#6E7191" />}
+                                  />
+                                </HStack>
+                              </VStack>
+                            </HStack>) : stepTwoData?.paymentDetails?.type === "bank-transfer" ? 
+                            (<HStack mt="18px" direction="row" gridGap="100px">
+                              <VStack alignItems="flex-start">
+                                <Text color="#4E4B66" fontSize="sm" mt="0px !important">
+                                  Name
+                                </Text>
+                                <Text color="#4E4B66" fontSize="sm" mt="18px !important">
+                                  Bank
+                                </Text>
+                                <Text color="#4E4B66" fontSize="sm" mt="18px !important">
+                                  Account No.
+                                </Text>
+                              </VStack>
+
+                              <VStack alignItems="flex-start">
+                                <HStack mt="0px !important">
+                                  <Text fontSize="sm" mt="0 !important">
+                                    {/* Chioma Adekunle Buhari */}
+                                    {stepTwoData?.paymentDetails.accountName}
+                                  </Text>
+                                </HStack>
+
+                                <HStack mt="16px !important">
+                                  <Text fontSize="sm" mt="0 !important">
+                                    {/* Guaranty Trust Bank */}
+                                    {stepTwoData?.paymentDetails.bankName}
+                                  </Text>
+                                </HStack>
+
+                                <HStack mt="16px !important" justifyContent="flex-start">
+                                  <Text fontSize="sm">
+                                    {/* 0123456789 */}
+                                    {stepTwoData?.paymentDetails.accountNumber}
+                                  </Text>
+                                  <IconButton
+                                  onClick={() => copyToClipboard((stepTwoData?.paymentDetails as any).accountNumber)}
+                                    size="xs"
+                                    variant="ghost"
+                                    aria-label="copy"
+                                    icon={<CopyIcon color="#6E7191" />}
+                                  />
+                                </HStack>
+                              </VStack>
+                            </HStack>) : null
                           }
-                        },
-                        "validateEmail",
-                        3000
-                      )();
-                      setProvidedData({ ...providedData, email: e?.target.value });
-                    }}
-                  />
-                </InputGroup>
-              </VStack>
-            </FormControl>
+                        </Box>
 
-            {fiat && (
-              <FormControl mt="20px">
-                <Box as="label">Transfer Method</Box>
-                <Select
-                  mt=".25rem"
-                  fontSize=".85rem"
-                  value={transferMethod || ""}
-                  onChange={handleTransferMethod}
-                  placeholder="Choose Transfer Method"
-                  isReadOnly={approvingState === "processing"}
-                >
-                  <option value="bank">{fiat === "gh" ? "Bank/Mobile Money" : "Bank Transfer"}</option>
-                  {/* {fiat === "gh" && <option value="mobileMoney">Mobile Money</option>} */}
-                </Select>
-              </FormControl>
-            )}
+                        <Stack mt="24px !important">
+                          <Text fontSize="sm">Time limit</Text>
+                          <Text fontSize="sm" mt="0 !important" color="#03A438">
+                          {stepTwoData._timeout ?? 10}:00
+                          </Text>
 
-            {transferMethod === "bank" && fiat && (
+                          <Text mt="32px !important" fontSize="sm" color="#4E4B66">
+                            Please ensure payment is made within {stepTwoData._timeout ?? 10}:00
+                            mins, else transaction would be cancelled.
+                          </Text>
+                        </Stack>
+
+                        <HStack
+                          mt="40px !important"
+                          pb="40px"
+                          justifyContent="center"
+                          gridGap="20px"
+                        >
+                          <Button
+                            // h="56px"
+                            onClick={() => {}}
+                            minW="120px !important"
+                            // px="10px"
+                            bg="transparent"
+                            border="2px solid transparent"
+                            color="#03A438"
+                          >
+                            Cancel trade
+                          </Button>
+                          <Button onClick={() => {}} minW="120px !important">
+                            Paid
+                          </Button>
+                        </HStack>
+
+                        <ConfirmationModal
+                          isOpen={false}
+                          onClose={()=>{}}
+                          isLoading={false}
+                          onConfirm={() => {}}
+                          title="Confirm payment"
+                        >
+                          <VStack>
+                            <Text textAlign="center">
+                              Please confirm that you have make payment of{" "}
+                              <strong>
+                                N2000
+                              </strong>{" "}
+                              to seller bank account.
+                            </Text>
+                          </VStack>
+                        </ConfirmationModal>
+
+                        <ConfirmationModal
+                          isOpen={false}
+                          onClose={()=>{}}
+                          isLoading={false}
+                          onConfirm={() => {}}
+                          title="Confirm"
+                        >
+                          <VStack>
+                            <Text textAlign="center">
+                              By cancelling this order, the coins would be returned back to the
+                              seller, and the funds are not refundable.
+                            </Text>
+                          </VStack>
+                        </ConfirmationModal>
+                      </Stack>
+                    </Box>
+                </HStack>
+                </FormControl>
+              </>) : null
+            }
+
+            {approvingState === "stepone" ? 
+            <>
               <FormControl mt="20px">
                 <HStack>
-                  <Box as="label">Payment Details</Box>
-                  {isLoading && <CircularProgress size="16px" isIndeterminate color="green.300" />}
+                  <Box as="label">Email Address</Box>
                 </HStack>
                 <VStack>
+                  <InputGroup>
+                    <Input
+                      disabled={actionState === "tosteptwo"}
+                      isReadOnly={actionState === "tosteptwo"}
+                      type="email"
+                      isInvalid={providedData?.email && !isValidEmail(providedData?.email) ? true : false}
+                      value={providedData?.email || ""}
+                      onChange={(e: any) => {
+                        redebounce(
+                          async () => {
+                            if (!isValidEmail(e.target.value)) {
+                              toast({
+                                title: "Oops!! Invalid Input",
+                                description: "Email is invalid",
+                                status: "error",
+                                duration: 3000,
+                                isClosable: true,
+                              });
+                            }
+                          },
+                          "validateEmail",
+                          3000
+                        )();
+                        setProvidedData({ ...providedData, email: e?.target.value });
+                      }}
+                    />
+                  </InputGroup>
+                </VStack>
+              </FormControl>
+
+              {fiat && (
+                <FormControl mt="20px">
+                  <Box as="label">Transfer Method</Box>
                   <Select
                     mt=".25rem"
                     fontSize=".85rem"
-                    value={bankCode || ""}
-                    onChange={handleBankCode}
-                    isReadOnly={approvingState === "processing"}
-                    placeholder="Choose Bank"
-                    {...(data && data[0] && { defaultValue: data[0].code })}
+                    value={transferMethod || ""}
+                    onChange={handleTransferMethod}
+                    placeholder="Choose Transfer Method"
+                    isReadOnly={actionState === "tosteptwo"}
                   >
-                    {data?.map(({ code, name }, index) => (
-                      <option value={code} key={String(code) + index}>
-                        {name}
-                      </option>
-                    ))}
+                    <option value="bank">{fiat === "gh" ? "Bank/Mobile Money" : "Bank Transfer"}</option>
+                    {/* {fiat === "gh" && <option value="mobileMoney">Mobile Money</option>} */}
                   </Select>
-                  {bankCode ? (
-                    <>
-                      <InputGroup>
-                        <Input
-                          disabled={!bankCode || approvingState === "processing"}
-                          isReadOnly={approvingState === "processing"}
-                          type="number"
-                          placeholder="Account Number"
-                          value={accountNumber || ""}
-                          onChange={handleAccountNumber}
-                        />
-                        {fiat === "ng" ? (
-                          <InputRightElement
-                            children={
-                              fetchingDetail ? (
-                                <CircularProgress size="16px" isIndeterminate color="green.300" />
-                              ) : (
-                                <IconButton
-                                  size="xs"
-                                  as={Button}
-                                  aria-label="refetch details"
-                                  icon={<RepeatIcon />}
-                                  onClick={() =>
-                                    approvingState !== "processing" &&
-                                    accountNumber &&
-                                    resolveAccount({
-                                      accountNumber: accountNumber as string,
-                                      bankCode: bankCode as string,
-                                    })
-                                  }
-                                />
-                              )
-                            }
-                          />
-                        ) : null}
-                      </InputGroup>
-                      <InputGroup>
-                        <Input
-                          disabled={fiat === "ng"}
-                          type="text"
-                          placeholder="Account Name"
-                          defaultValue={bankDetail?.account_name ?? ""}
-                          onChange={handleAccountName}
-                        />
-                      </InputGroup>
-                    </>
-                  ) : null}
-                </VStack>
-              </FormControl>
-            )}
+                </FormControl>
+              )}
 
-            {true || (providedData?.phone && providedData?.address) ? (
               <Button
                 colorScheme="green"
                 w="100%"
@@ -793,47 +852,16 @@ function Buy(props: RouterProps & { path: string }) {
                 onClick={async () => {
                   await submitTransaction();
                 }}
-                disabled={!isProcessable || approvingState === "processing" || approvingState === "completed"}
+                disabled={!isProcessable}
               >
-                {approvingState === "processing" ? (
+                {actionState === "tosteptwo" ? (
                   <CircularProgress size="16px" isIndeterminate color="green.300" />
-                ) : approvingState === "completed" ? (
-                  "Successful"
                 ) : (
-                  "Approve Spend"
+                  "Next"
                 )}
               </Button>
-            ) : (
-              <Popover
-                isOpen={isContactPopOverOpen}
-                initialFocusRef={firstFieldRef}
-                onOpen={onPopOverOpen}
-                onClose={onPopOverClose}
-                placement="top"
-                closeOnBlur={false}
-              >
-                <PopoverTrigger>
-                  <Button colorScheme="green" w="100%" mt="30px" fontSize="sm" fontWeight="400" disabled={!isProcessable}>
-                    Next
-                  </Button>
-                </PopoverTrigger>
-                <Portal>
-                  <PopoverContent p={5}>
-                    <FocusLock returnFocus persistentFocus={false}>
-                      <PopoverArrow />
-                      <PopoverCloseButton />
-                      <ContactForm
-                        data={providedData}
-                        token={token || ""}
-                        firstFieldRef={firstFieldRef}
-                        onCancel={onPopOverClose}
-                        updateData={setProvidedData}
-                      />
-                    </FocusLock>
-                  </PopoverContent>
-                </Portal>
-              </Popover>
-            )}
+            </> : null}
+
           </>
         ) : (
           <>
@@ -874,75 +902,10 @@ function Buy(props: RouterProps & { path: string }) {
           </>
         )}
       </Box>
-      {/* </VStack>
-          </Container>
-        </Box>
-      </Box> */}
+     
     </>
   );
 }
 
 export default Buy;
 
-interface IContactForm {
-  data: ProvidedData;
-  token: string;
-  firstFieldRef: any;
-  onCancel: any;
-  updateData: (d: ProvidedData) => void;
-}
-
-const ContactForm: FC<IContactForm> = ({ token, firstFieldRef, data, updateData, onCancel }) => {
-  const [providedData, setProvidedData] = useState<ProvidedData>(data);
-
-  const updateProvidedData = (t: string, type: keyof ProvidedData) => {
-    setProvidedData((pData: ProvidedData) => ({ ...pData, [type]: t }));
-  };
-
-  return (
-    <>
-      {!data?.address ? (
-        <FormControl mt="20px">
-          <Box as="label">{token?.toUpperCase()} Address</Box>
-          <HStack mt=".25rem"></HStack>
-          <Input {...{ ref: firstFieldRef }} value={providedData?.address ?? ""} onChange={(e: any) => updateProvidedData(e.target.value, "address")} />
-        </FormControl>
-      ) : null}
-
-      {!data?.email ? (
-        <FormControl mt="20px">
-          <Box as="label">Email</Box>
-          <HStack mt=".25rem"></HStack>
-          <Input
-            type="email"
-            {...{ ref: !data.address ? firstFieldRef : null }}
-            value={providedData?.email ?? ""}
-            onChange={(e: any) => updateProvidedData(e.target.value, "email")}
-          />
-        </FormControl>
-      ) : null}
-
-      {!data?.phone ? (
-        <FormControl mt="20px">
-          <Box as="label">Phone Number</Box>
-          <HStack mt=".25rem"></HStack>
-          <Input
-            type="tel"
-            {...{ ref: !data.address && !data?.email ? firstFieldRef : null }}
-            value={providedData?.phone ?? ""}
-            onChange={(e: any) => updateProvidedData(e.target.value, "phone")}
-          />
-        </FormControl>
-      ) : null}
-
-      <ButtonGroup d="flex" justifyContent="flex-end">
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button colorScheme="teal" onClick={() => updateData(providedData)}>
-          Continue
-        </Button>
-      </ButtonGroup>
-    </>
-  );
-};
