@@ -77,7 +77,7 @@ function minimumProxy(obj: Partial<Record<string, number>>) {
 
 const minimumToken = minimumProxy({ celo: 5 });
 
-function Swap(props: RouterProps & { path: string }) {
+function Widthdraw(props: RouterProps & { path: string }) {
   const { onOpen: onPopOverOpen, onClose: onPopOverClose, isOpen: isContactPopOverOpen } = useDisclosure();
   const firstFieldRef = useRef(null);
 
@@ -882,7 +882,7 @@ function Swap(props: RouterProps & { path: string }) {
   );
 }
 
-export default Swap;
+export default Widthdraw;
 
 interface IContactForm {
   data: ProvidedData;

@@ -77,7 +77,7 @@ function minimumProxy(obj: Partial<Record<string, number>>) {
 
 const minimumToken = minimumProxy({ celo: 5 });
 
-function Swap(props: RouterProps & { path: string }) {
+function Buy(props: RouterProps & { path: string }) {
   const { onOpen: onPopOverOpen, onClose: onPopOverClose, isOpen: isContactPopOverOpen } = useDisclosure();
   const firstFieldRef = useRef(null);
 
@@ -539,7 +539,7 @@ function Swap(props: RouterProps & { path: string }) {
         {approvingState !== "completed" ? (
           <>
             <FormControl>
-              <Box as="label">You Send</Box>
+              <Box as="label">You Buy</Box>
               <HStack mt=".25rem">
                 <Select
                   name="send"
@@ -882,7 +882,7 @@ function Swap(props: RouterProps & { path: string }) {
   );
 }
 
-export default Swap;
+export default Buy;
 
 interface IContactForm {
   data: ProvidedData;
