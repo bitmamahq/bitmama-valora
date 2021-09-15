@@ -1,8 +1,23 @@
-import { Box, Container, Tabs, Tab, TabList, TabPanels, TabPanel, VStack, Image, Heading } from "@chakra-ui/react";
+import { Box, Container, Heading, Image, Tab, TabList, TabPanel, TabPanels, Tabs, VStack } from "@chakra-ui/react";
+import { useState } from "react";
+import { Buy, Withdraw } from "./panels";
 
-import { Withdraw, Buy } from "./panels";
+
+enum TabSubject  {
+  withdraw = "Widthdraw",
+  buy = "Buy"
+}
+
+const tabs = ["withdraw", "buy"];
 
 const Swap = (props: any) => {
+  const [tabIndex, setTabIndex] = useState(String(props.action).toLowerCase() === "buy" ? 1 : 0)
+  const currentTab = tabs[tabIndex] || "withdraw";
+
+  const handleTabsChange = (index:number) => {
+    setTabIndex(index)
+  }
+
   return (
     <Box
       p="50px 0"
@@ -17,7 +32,7 @@ const Swap = (props: any) => {
             <VStack>
               <Image w="121px" h="48px" src="https://prod-doc.fra1.cdn.digitaloceanspaces.com/btm-assets/logo.png" />
               <Heading textAlign="center" fontSize="2xl" m="20px 0 !important">
-                Withdraw cEUR/cUSD
+                {TabSubject[currentTab]} cEUR/cUSD
               </Heading>
             </VStack>
 
@@ -27,7 +42,7 @@ const Swap = (props: any) => {
               borderRadius=".5rem"
               // overflow="hidden"
             >
-              <Tabs isFitted>
+              <Tabs isFitted index={tabIndex} onChange={handleTabsChange}>
                 <TabList
                   borderBottom="none"
                   bg="white"
