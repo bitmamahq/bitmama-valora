@@ -22,9 +22,9 @@ export type PaymentDetails = {
     phoneNumber: string;
   },
   "bank-transfer": {
-    bankCode: string | undefined;
+    bankCode?: string | undefined;
     accountName: string;
-    bankName: string;
+    bank: string;
     accountNumber: string | undefined;
   }
 }

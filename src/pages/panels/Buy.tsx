@@ -166,8 +166,22 @@ function Buy(props: RouterProps & { path: string }) {
 
           if(2+2===4) {
             const respObj = await requestTxRef(txPayload);
-            console.log({respObj})
-            resp = {...txPayload,...respObj.data?.message} as TxBuyPayload
+            const newResp = {...respObj.data.message};
+            if(!newResp.paymentDetails) {
+              if(newResp.transferMethod === "bank-transfer") {
+                newResp.paymentDetails = {
+                  accountName: newResp?.accountName ?? "",
+                  bank: newResp?.bank ?? "",
+                  accountNumber: newResp?.accountNumber ?? "",
+                }
+              } else if(newResp.transferMethod === "mobile-money") {
+                newResp.paymentDetails = {
+                  network: newResp?.network ?? "",
+                  phoneNumber: newResp?.phoneNumber ?? "",
+                }
+              } 
+            }
+            resp = {...txPayload,...newResp} as TxBuyPayload
           }
           console.log(resp)
           setStepTwoData(resp)
@@ -177,13 +191,44 @@ function Buy(props: RouterProps & { path: string }) {
       } else if (action === "paid") {
         setIsConfirming(true)
         const respObj = await updateTxRef(stepTwoData?.transactionReference ?? "", "paid");
-        setStepTwoData(respObj.data.message)
+        const newResp = {...respObj.data.message};
+        if(!newResp.paymentDetails) {
+          if(newResp.transferMethod === "bank-transfer") {
+            newResp.paymentDetails = {
+              accountName: newResp?.accountName ?? "",
+              bank: newResp?.bank ?? "",
+              accountNumber: newResp?.accountNumber ?? "",
+            }
+          } else if(newResp.transferMethod === "mobile-money") {
+            newResp.paymentDetails = {
+              network: newResp?.network ?? "",
+              phoneNumber: newResp?.phoneNumber ?? "",
+            }
+          } 
+        }
+        setStepTwoData(newResp)
         setApprovingState("stepthreepaid")
         setIsConfirming(false)
       } else if (action === "cancel") {
         setIsCancelling(true)
         const respObj = await updateTxRef(stepTwoData?.transactionReference ?? "", "cancel");
-        setStepTwoData(respObj.data as TxBuyPayload)
+        const newResp = {...respObj.data.message};
+        if(!newResp.paymentDetails) {
+          if(newResp.transferMethod === "bank-transfer") {
+            newResp.paymentDetails = {
+              accountName: newResp?.accountName ?? "",
+              bank: newResp?.bank ?? "",
+              accountNumber: newResp?.accountNumber ?? "",
+            }
+          } else if(newResp.transferMethod === "mobile-money") {
+            newResp.paymentDetails = {
+              network: newResp?.network ?? "",
+              phoneNumber: newResp?.phoneNumber ?? "",
+            }
+          } 
+        }
+        setIsCompletedProcess(false);
+        setStepTwoData(newResp)
         setApprovingState("stepthreecancelled")
         // setApprovingState("stepone")
         setIsCancelling(false)
@@ -287,9 +332,9 @@ function Buy(props: RouterProps & { path: string }) {
   }, [props?.location?.search, currentTab]);
 
   // eslint-disable-next-line
-  const phone = useMemo(() => new URLSearchParams(props?.location?.search).get("phone"), []);
+  const phone = new URLSearchParams(props?.location?.search).get("phone");
   // eslint-disable-next-line
-  const address = useMemo(() => new URLSearchParams(props?.location?.search).get("address"), []);
+  const address = new URLSearchParams(props?.location?.search).get("address");
   
   useEffect(() => {
     if (phone && address) {
@@ -763,7 +808,22 @@ function Buy(props: RouterProps & { path: string }) {
                           }
                         </Box>}
 
-                        {approvingState === "stepthreecancelled" ? 
+                        {approvingState === "stepthreepaid" ? 
+                          <Box
+                            mt="32px !important"
+                            border="1px solid #D9DBE9"
+                            bg="#F4F2FF"
+                            p="28px 26px"
+                            borderRadius="6px"
+                          >
+                            <Heading fontSize="sm">Awaiting Payment Clearance</Heading>
+
+                            <HStack mt="12px">
+                              <Text fontSize="sm" color="#4E4B66">
+                                You will be credited with {floatString(stepTwoData?.tokenAmount ?? 0)} {toUpper(stepTwoData?.destinationToken ?? "")} once your payment is cleared.
+                              </Text>
+                            </HStack>
+                          </Box> : approvingState === "stepthreecancelled" ? 
                           <Box
                             mt="32px !important"
                             border="1px solid #D9DBE9"
@@ -796,7 +856,7 @@ function Buy(props: RouterProps & { path: string }) {
                             </HStack>
                           </Box> : null}
 
-                        {["stepthreepaid", "stepthreetimedout","stepthreecompleted", "stepthreecancelled"] && 
+                        {["stepthreepaid", "stepthreetimedout","stepthreecompleted", "stepthreecancelled"].includes(approvingState) && 
                           <>
                             <Stack mt="24px !important">
                               <Text fontSize="sm">Restart</Text>
