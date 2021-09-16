@@ -22,7 +22,7 @@ import { Button, ConfirmationModal, Input, Select } from "../../components";
 import { IExchangeRate } from "../../interfaces";
 import { getWalletBalance, selectWallet, setWalletDetails } from "../../slice/wallet";
 import { AppDispatch } from "../../store";
-import { getExchangeRate as getRate, requestTxRef, TxBuyPayload, TxRequestPayload, updateTxRef } from "../../utils/bitmamaLib";
+import { getExchangeRate as getRate, PaymentDetails, requestTxRef, TxBuyPayload, TxRequestPayload, updateTxRef } from "../../utils/bitmamaLib";
 import { getBalance } from "../../utils/celo";
 import formatter, { floatString, toUpper } from "../../utils/formatter";
 import { localStorageKey, requestIdKey } from "../../utils/valoraLib";
@@ -141,7 +141,7 @@ function Buy(props: RouterProps & { path: string }) {
             destinationToken: token,
             sourceCurrency: (fiat === "ng" ? "ngn" : "ghs") as TxRequestPayload["sourceCurrency"],
             tokenAmount: Number(sendValue),
-            transferMethod: (transferMethod === "bank" ? "bank-transfer" : "mobile-money") as TxRequestPayload["transferMethod"],
+            transferMethod: (fiat === "ng" ? "bank-transfer" : "mobile-money") as TxRequestPayload["transferMethod"],
             email: providedData.email || "",
             phoneNumber: providedData.phone || "",
             fiatAmount: Number(receiveValue),
@@ -149,42 +149,43 @@ function Buy(props: RouterProps & { path: string }) {
           };
           let resp = {
             ...txPayload,
-            transactionRef: new Date().getTime().toString(36),
-            paymentDetails: (transferMethod === "bank" ? {
+            transactionReference: new Date().getTime().toString(36),
+            status: "fiat-deposited",
+            paymentDetails: (fiat === "ng" ? {
               bankCode: String(60543),
               accountName: "Ayo Daniel",
               bankName: "GTBank",
               accountNumber: String(Math.floor(Math.random() * 8778332323)),
-              type: "bank-transfer",
             } : {
               network: "VODAFONE",
               phoneNumber: String(Math.floor(Math.random() * 8778332323)),
-              type: "mobile-money",
             }) as TxBuyPayload["paymentDetails"],
-            _timeout: 15,
+            timeout: 15,
             createdAt: new Date()
           } as TxBuyPayload
 
-          if(2+2===5) {
+          if(2+2===4) {
             const respObj = await requestTxRef(txPayload);
-            resp = respObj.data as TxBuyPayload
+            console.log({respObj})
+            resp = {...txPayload,...respObj.data?.message} as TxBuyPayload
           }
+          console.log(resp)
           setStepTwoData(resp)
           setApprovingState("steptwo")
           setActionState("")
         }
       } else if (action === "paid") {
         setIsConfirming(true)
-        const respObj = await updateTxRef(stepTwoData?.transactionRef, "paid");
-        setStepTwoData(respObj)
+        const respObj = await updateTxRef(stepTwoData?.transactionReference ?? "", "paid");
+        setStepTwoData(respObj.data.message)
         setApprovingState("stepthreepaid")
         setIsConfirming(false)
       } else if (action === "cancel") {
         setIsCancelling(true)
-        const respObj = await updateTxRef(stepTwoData?.transactionRef ?? "", "cancel");
+        const respObj = await updateTxRef(stepTwoData?.transactionReference ?? "", "cancel");
         setStepTwoData(respObj.data as TxBuyPayload)
         setApprovingState("stepthreecancelled")
-        setApprovingState("stepone")
+        // setApprovingState("stepone")
         setIsCancelling(false)
       } else {
         toast({
@@ -440,7 +441,7 @@ function Buy(props: RouterProps & { path: string }) {
 
   const isInvalidAmount = sendValue && token && Number(sendValue) < minimumToken[token];
 
-  const errorInAmountField = useMemo(() => {
+  const errorInAmountField = () => {
     const isInvalidAmount = sendValue && token && Number(sendValue) < minimumToken[token];
     let errorMsg = ""
     if(isInvalidAmount) {
@@ -449,7 +450,7 @@ function Buy(props: RouterProps & { path: string }) {
           // errorMsg = `Amount must be greater than 0`
     }
     return errorMsg;
-  }, [sendValue, token])
+  }
 
   const receipientAccount = () => {
     let acc = "";
@@ -508,7 +509,7 @@ function Buy(props: RouterProps & { path: string }) {
             </Heading>
         </VStack>
         ) : null}
-        {["stepone", "steptwo"].includes(approvingState) ? (
+        {["stepone", "steptwo", "stepthreepaid", "stepthreecancelled"].includes(approvingState) ? (
           <>
             {approvingState === "stepone" ? <FormControl>
               <Box as="label">You Buy</Box>
@@ -575,10 +576,10 @@ function Buy(props: RouterProps & { path: string }) {
                       </strong>
                     </Box>
                   </HStack>
-                  {errorInAmountField && token ? (
+                  {errorInAmountField() && token ? (
                     <HStack>
                       <Box as="span" fontSize="12px" fontWeight="400" color="red.200">
-                        <p>{errorInAmountField}</p>
+                        <p>{errorInAmountField()}</p>
                       </Box>
                     </HStack>
                   ) : null}
@@ -628,7 +629,7 @@ function Buy(props: RouterProps & { path: string }) {
               </FormControl>
             ) : null}
             
-            {approvingState === "steptwo" ? (
+            {["steptwo", "stepthreepaid", "stepthreecancelled"].includes(approvingState) ? (
               <>
                 <FormControl mt="20px">
                   <HStack mt=".25rem">
@@ -649,7 +650,7 @@ function Buy(props: RouterProps & { path: string }) {
                             >
                               {/* ₦12,000 */}
                               {stepTwoData &&
-                                formatter(stepTwoData?.sourceCurrency ?? "").format(stepTwoData?._fiatAmount ?? 0)}{" "}
+                                formatter(stepTwoData?.sourceCurrency ?? "").format(stepTwoData?.fiatAmount ?? 0)}{" "}
                             </Text>
                           </Stack>
                           <Stack>
@@ -657,7 +658,7 @@ function Buy(props: RouterProps & { path: string }) {
                               Quantity
                             </Text>
                             <Text fontSize="sm" mt="0px !important">
-                              {floatString(stepTwoData?._tokenAmount ?? 0)}{" "}
+                              {floatString(stepTwoData?.tokenAmount ?? 0)}{" "}
                               {toUpper(stepTwoData?.destinationToken ?? "")}
                             </Text>
                           </Stack>
@@ -674,7 +675,7 @@ function Buy(props: RouterProps & { path: string }) {
                         </HStack>
 
 
-                        <Box
+                        {approvingState === "steptwo" && <Box
                           mt="32px !important"
                           border="1px solid #D9DBE9"
                           bg="#F4F2FF"
@@ -682,7 +683,7 @@ function Buy(props: RouterProps & { path: string }) {
                           borderRadius="6px"
                         >
                           <Heading fontSize="sm">Account Details</Heading>
-                          {stepTwoData?.paymentDetails?.type === "mobile-money" ?
+                          {stepTwoData?.transferMethod === "mobile-money" ?
                             (<HStack mt="18px" direction="row" gridGap="100px">
                               <VStack alignItems="flex-start">
                                 <Text color="#4E4B66" fontSize="sm" mt="0px !important">
@@ -697,14 +698,14 @@ function Buy(props: RouterProps & { path: string }) {
                                 <HStack mt="0px !important">
                                   <Text fontSize="sm" mt="0 !important">
                                     {/* MTN NG */}
-                                    {stepTwoData?.paymentDetails.network}
+                                    {(stepTwoData?.paymentDetails as PaymentDetails["mobile-money"]).network}
                                   </Text>
                                 </HStack>
 
                                 <HStack mt="16px !important" justifyContent="flex-start">
                                   <Text fontSize="sm">
                                     {/* 0123456789 */}
-                                    {stepTwoData?.paymentDetails.phoneNumber}
+                                    {(stepTwoData?.paymentDetails as PaymentDetails["mobile-money"]).phoneNumber}
                                   </Text>
                                   <IconButton
                                     onClick={() => copyToClipboard((stepTwoData?.paymentDetails as any).phoneNumber)}
@@ -715,7 +716,7 @@ function Buy(props: RouterProps & { path: string }) {
                                   />
                                 </HStack>
                               </VStack>
-                            </HStack>) : stepTwoData?.paymentDetails?.type === "bank-transfer" ? 
+                            </HStack>) : stepTwoData?.transferMethod === "bank-transfer" ? 
                             (<HStack mt="18px" direction="row" gridGap="100px">
                               <VStack alignItems="flex-start">
                                 <Text color="#4E4B66" fontSize="sm" mt="0px !important">
@@ -733,24 +734,24 @@ function Buy(props: RouterProps & { path: string }) {
                                 <HStack mt="0px !important">
                                   <Text fontSize="sm" mt="0 !important">
                                     {/* Chioma Adekunle Buhari */}
-                                    {stepTwoData?.paymentDetails.accountName}
+                                    {(stepTwoData?.paymentDetails as PaymentDetails["bank-transfer"]).accountName}
                                   </Text>
                                 </HStack>
 
                                 <HStack mt="16px !important">
                                   <Text fontSize="sm" mt="0 !important">
                                     {/* Guaranty Trust Bank */}
-                                    {stepTwoData?.paymentDetails.bankName}
+                                    {(stepTwoData?.paymentDetails as PaymentDetails["bank-transfer"]).bankName}
                                   </Text>
                                 </HStack>
 
                                 <HStack mt="16px !important" justifyContent="flex-start">
                                   <Text fontSize="sm">
                                     {/* 0123456789 */}
-                                    {stepTwoData?.paymentDetails.accountNumber}
+                                    {(stepTwoData?.paymentDetails as PaymentDetails["bank-transfer"]).accountNumber}
                                   </Text>
                                   <IconButton
-                                  onClick={() => copyToClipboard((stepTwoData?.paymentDetails as any).accountNumber)}
+                                  onClick={() => copyToClipboard((stepTwoData?.paymentDetails as PaymentDetails["bank-transfer"]).accountNumber)}
                                     size="xs"
                                     variant="ghost"
                                     aria-label="copy"
@@ -760,73 +761,125 @@ function Buy(props: RouterProps & { path: string }) {
                               </VStack>
                             </HStack>) : null
                           }
-                        </Box>
+                        </Box>}
 
-                        <Stack mt="24px !important">
-                          <Text fontSize="sm">Time limit</Text>
-                          <Text fontSize="sm" mt="0 !important" color="#03A438">
-                          {stepTwoData?._timeout ?? 10}:00
-                          </Text>
-
-                          <Text mt="32px !important" fontSize="sm" color="#4E4B66">
-                            Please ensure payment is made within {stepTwoData?._timeout ?? 10}:00
-                            mins, else transaction would be cancelled.
-                          </Text>
-                        </Stack>
-
-                        <HStack
-                          mt="40px !important"
-                          pb="40px"
-                          justifyContent="center"
-                          gridGap="20px"
-                        >
-                          <Button
-                            // h="56px"
-                            onClick={cancelOnOpen}
-                            minW="120px !important"
-                            // px="10px"
-                            bg="transparent"
-                            border="2px solid transparent"
-                            color="#03A438"
+                        {approvingState === "stepthreecancelled" ? 
+                          <Box
+                            mt="32px !important"
+                            border="1px solid #D9DBE9"
+                            bg="#F4F2FF"
+                            p="28px 26px"
+                            borderRadius="6px"
                           >
-                            Cancel
-                          </Button>
-                          <Button onClick={confirmOnOpen} minW="120px !important">
-                            Paid
-                          </Button>
-                        </HStack>
+                            <Heading fontSize="sm">Transaction Cancelled</Heading>
 
-                        <ConfirmationModal
-                          isOpen={confirmIsOpen}
-                          onClose={confirmOnClose}
-                          isLoading={isConfirming}
-                          onConfirm={() => submitTransaction("cancel")}
-                          title="Confirm payment"
-                        >
-                          <VStack>
-                            <Text textAlign="center">
-                              Please confirm that you have make payment of{" "}
-                              <strong>
-                              {formatter(stepTwoData?.sourceCurrency ?? "").format(stepTwoData?._fiatAmount ?? 0)}
-                              </strong>{" "}
-                              to {receipientAccount()}.
-                            </Text>
-                          </VStack>
-                        </ConfirmationModal>
+                            <HStack mt="12px">
+                              <Text fontSize="sm" color="#4E4B66">
+                                You have successfully cancelled the transaction, Feel free to initiate a
+                                new trade
+                              </Text>
+                            </HStack>
+                          </Box> : approvingState === "stepthreetimedout" ?
+                          <Box
+                            mt="32px !important"
+                            border="1px solid #D9DBE9"
+                            bg="#F4F2FF"
+                            p="28px 26px"
+                            borderRadius="6px"
+                          >
+                            <Heading fontSize="sm">Transaction Timedout</Heading>
+                    
+                            <HStack mt="12px">
+                              <Text fontSize="sm" color="#4E4B66">
+                                Transaction timedout.
+                              </Text>
+                            </HStack>
+                          </Box> : null}
 
-                        <ConfirmationModal
-                          isOpen={cancelIsOpen}
-                          onClose={cancelOnClose}
-                          isLoading={isCancelling}
-                          onConfirm={() => submitTransaction("paid")}
-                          title="Confirm"
-                        >
-                          <VStack>
-                            <Text textAlign="center">
-                              By cancelling this transaction, the transaction reference will no longer be eligible to any claims or liability.
-                            </Text>
-                          </VStack>
-                        </ConfirmationModal>
+                        {["stepthreepaid", "stepthreetimedout","stepthreecompleted", "stepthreecancelled"] && 
+                          <>
+                            <Stack mt="24px !important">
+                              <Text fontSize="sm">Restart</Text>
+
+                              <Text mt="32px !important" fontSize="sm" color="#4E4B66" onClick={() => {
+                                setApprovingState("stepone")
+                              }}>
+                                Start a new transaction
+                              </Text>
+                            </Stack>
+
+                          </>
+                        }
+                        
+                        {approvingState === "steptwo" && 
+                          <>
+                            <Stack mt="24px !important">
+                              <Text fontSize="sm">Time limit</Text>
+                              <Text fontSize="sm" mt="0 !important" color="#03A438">
+                              {stepTwoData?.timeout ?? 10}:00
+                              </Text>
+
+                              <Text mt="32px !important" fontSize="sm" color="#4E4B66">
+                                Please ensure payment is made within {stepTwoData?.timeout ?? 10}:00
+                                mins, else transaction would be cancelled.
+                              </Text>
+                            </Stack>
+
+                            <HStack
+                              mt="40px !important"
+                              pb="40px"
+                              justifyContent="center"
+                              gridGap="20px"
+                            >
+                              <Button
+                                // h="56px"
+                                onClick={cancelOnOpen}
+                                minW="120px !important"
+                                // px="10px"
+                                bg="transparent"
+                                border="2px solid transparent"
+                                color="#03A438"
+                              >
+                                Cancel
+                              </Button>
+                              <Button onClick={confirmOnOpen} minW="120px !important">
+                                Paid
+                              </Button>
+                            </HStack>
+
+                            <ConfirmationModal
+                              isOpen={confirmIsOpen}
+                              onClose={confirmOnClose}
+                              isLoading={isConfirming}
+                              onConfirm={() => submitTransaction("paid")}
+                              title="Confirm payment"
+                            >
+                              <VStack>
+                                <Text textAlign="center">
+                                  Please confirm that you have make payment of{" "}
+                                  <strong>
+                                  {formatter(stepTwoData?.sourceCurrency ?? "").format(stepTwoData?._fiatAmount ?? 0)}
+                                  </strong>{" "}
+                                  to {receipientAccount()}.
+                                </Text>
+                              </VStack>
+                            </ConfirmationModal>
+
+                            <ConfirmationModal
+                            isOpen={cancelIsOpen}
+                            onClose={cancelOnClose}
+                            isLoading={isCancelling}
+                            onConfirm={() => submitTransaction("cancel")}
+                            title="Confirm"
+                          >
+                            <VStack>
+                              <Text textAlign="center">
+                                By cancelling this transaction, the transaction reference will no longer be eligible to any claims or liability.
+                              </Text>
+                            </VStack>
+                          </ConfirmationModal>
+                          </>
+                        }
                       </Stack>
                     </Box>
                 </HStack>

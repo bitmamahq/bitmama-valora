@@ -19,17 +19,17 @@ export const getExchangeRate = async (source: string, destination: string) => {
 export type PaymentDetails = {
   "mobile-money": {
     network: string;
-    phoneNumber?: string;
-    type: "mobile-money"
+    phoneNumber: string;
   },
   "bank-transfer": {
     bankCode: string | undefined;
     accountName: string;
     bankName: string;
     accountNumber: string | undefined;
-    type: "bank-transfer"
   }
 }
+
+export type TxRequestStatus = "fiat-deposited" | string
 
 export type TxRequestPayload = {
   phoneNumber?: string;
@@ -50,7 +50,6 @@ export interface TxPayload {
   email: string;
   fiat:string;
   destinationAddress?: any;
-
   destinationToken: TxRequestPayload["sourceCurrency"];
   sourceToken: TxRequestPayload["destinationToken"];
   token: string;
@@ -61,15 +60,16 @@ export interface TxPayload {
 }
 
 export interface TxBuyPayload extends TxRequestPayload {
+  status: TxRequestStatus
   paymentDetails: PaymentDetails["mobile-money"] | PaymentDetails["bank-transfer"];
   transactionState?: "pending" | "timedout" | "cancelled" | "processing" | "paid" | "completed",
-  transactionRef: string,
+  transactionReference: string,
   depositReceipt?: string,
   transferReceipt?: string,
   _tokenAmount: number,
   _fiatAmount: number,
   _fee: number,
-  _timeout: number,
+  timeout: number,
   createdAt: Date,
   processedAt: Date,
 }
@@ -108,8 +108,11 @@ export const requestTxRef = async (sourcePayload: TxRequestPayload) => {
 
 export const updateTxRef = async (ref: string, operation: TxUpdate) => {
   try {
-    const endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/buy`;
-    const rateReq = await post(endpoint, {ref, operation}, headers);
+    let endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/buy/confirm?transactionRef=${ref}`;
+    if(operation === "cancel") {
+      endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/buy/cancel?transactionRef=${ref}`;
+    }
+    const rateReq = await get(endpoint, headers);
     return Promise.resolve(rateReq);
   } catch (err) {
     return Promise.reject(err);
