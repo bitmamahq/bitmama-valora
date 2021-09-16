@@ -9,7 +9,7 @@ import {
 import { FC } from "react";
 
 export type BuyRefProps = {
-    view: "" | "loading" | "error" | "notfound",
+    view: "" | "loading" | "error" | "notfound" | "loaded",
     error?: string,
     startNew?: () => void,
 }

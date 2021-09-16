@@ -12,18 +12,15 @@ import {
   FormControl,
   Heading,
   HStack,
-  IconButton,
-  Image,
-  InputGroup,
+  IconButton, InputGroup,
   InputLeftElement,
   InputRightElement,
   Popover,
   PopoverArrow,
   PopoverCloseButton,
   PopoverContent,
-  PopoverTrigger,
-  useToast,
-  VStack,
+  PopoverTrigger, Stack, useToast,
+  VStack
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
 import { isNaN } from "lodash";
@@ -495,22 +492,29 @@ function Widthdraw(props: RouterProps & { path: string }) {
   if (currentTab !== "newTab") {
     return (
       <>
-        <Box p="50px 0" minH="100vh">
-          <Box bg="rgba(249,250,251,1)" h="100%">
-            <Container maxW={["container.xl", "xl"]} h="100%">
-              <VStack p={["40px 0", "40px"]}>
-                <VStack>
-                  <Image w="121px" h="48px" src="https://prod-doc.fra1.cdn.digitaloceanspaces.com/btm-assets/logo.png" />
+        <FormControl mt="20px">
+                  <HStack mt=".25rem">
+                    <Box bg="white" borderRadius="16px" h="fit-content">
+                      <Stack p="32px">
+                        <Box p="10px 0" minH="20vh">
+                            <Box bg="rgba(249,250,251,1)" h="100%">
+                                <Container maxW={["container.xl", "xl"]} h="100%">
+                                    <VStack p={["10px 0", "10px"]}>
+                                        <VStack>
 
-                  <Heading textAlign="center" fontSize="sm" m="140px 0 !important">
-                    {currentTab === "redirectedTab" ? <Box m="0 0 1rem 0 !important">Processing &nbsp;&nbsp;</Box> : null}
-                    <CircularProgress size="24px" isIndeterminate color="green.300" />
-                  </Heading>
-                </VStack>
-              </VStack>
-            </Container>
-          </Box>
-        </Box>
+                                        <Heading textAlign="center" fontSize="sm" m="40px 0 !important">
+                                            <Box m="0 0 1rem 0 !important">Processing &nbsp;&nbsp;</Box>
+                                            <CircularProgress size="48px" isIndeterminate color="green.300" />
+                                        </Heading>
+                                        </VStack>
+                                    </VStack>
+                                </Container>
+                            </Box>
+                        </Box>
+                      </Stack>
+                    </Box>
+                </HStack>
+            </FormControl>
       </>
     );
   }
@@ -519,17 +523,6 @@ function Widthdraw(props: RouterProps & { path: string }) {
 
   return (
     <>
-      {/* <Box p="50px 0" minH="100vh">
-        <Box bg="rgba(249,250,251,1)" h="100%">
-          <Container maxW={["container.xl", "xl"]} h="100%">
-            <VStack p={["40px 0", "40px"]}> */}
-      {/* <VStack>
-        <Image w="121px" h="48px" src="https://prod-doc.fra1.cdn.digitaloceanspaces.com/btm-assets/logo.png" />
-        <Heading textAlign="center" fontSize="2xl" m="20px 0 !important">
-          Withdraw CELO/cEUR/cUSD
-        </Heading>
-      </VStack> */}
-
       <Box as="form" boxShadow="base" p={["1rem 1.5rem", "2rem 2.5rem"]} w="100%" bg="white" borderRadius=".5rem">
         {connected && approvingState !== "completed" && (
           <Badge mb="20px" variant="solid" colorScheme="green">

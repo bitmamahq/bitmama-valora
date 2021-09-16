@@ -67,7 +67,6 @@ function Buy(props: RouterProps & { path: string }) {
   const [token, setToken] = useState<TokenType>();
   const [sendValue, setSendValue] = useState<string>();
   const [receiveValue, setReceiveValue] = useState<string>();
-  const [isCompletedProcess, setIsCompletedProcess] = useState(false);
   const [showField, setShowField] = useState({
     unit: true,
     amount: true,
@@ -139,7 +138,6 @@ function Buy(props: RouterProps & { path: string }) {
 
   const submitTransaction = async (action?: "paid" | "cancel") => {
     try {
-      setIsCompletedProcess(false);
       if(approvingState === "stepone") {
         if(isProcessable) {
           setActionState("tosteptwo")
@@ -413,14 +411,6 @@ function Buy(props: RouterProps & { path: string }) {
       }
     }
   }, [expired, approvingState])
-
-  useEffect(() => {
-    return () => {
-      if (closeRef.current) clearTimeout(closeRef.current);
-      !isCompletedProcess && approvingState === "stepone" && window.confirm("Are you sure you want to discard your inputs?");
-    };
-    // eslint-disable-next-line
-  }, []);
 
   useEffect(() => {
     handleTabState();
