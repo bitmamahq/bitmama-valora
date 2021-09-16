@@ -436,7 +436,15 @@ function Buy(props: RouterProps & { path: string }) {
   const copyToClipboard = (text:any) => {
     if(!text) return;
     setCopiedValue(String(text))
-    return onCopy()
+    onCopy()
+    toast({
+      title: "Text Copied",
+      description: String(""),
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+    return;
   }
 
   const getExchangeRate = async (
@@ -920,10 +928,13 @@ function Buy(props: RouterProps & { path: string }) {
                           >
                             <Heading fontSize="sm">Account Details</Heading>
                             {stepTwoData?.transferMethod === "mobile-money" ?
-                              (<HStack mt="18px" direction="row" gridGap="100px">
+                              <HStack mt="18px" direction="row" gridGap="100px">
                                 <VStack alignItems="flex-start">
                                   <Text color="#4E4B66" fontSize="sm" mt="0px !important">
                                     Network
+                                  </Text>
+                                  <Text color="#4E4B66" fontSize="sm" mt="18px !important">
+                                    Merchant Code
                                   </Text>
                                   <Text color="#4E4B66" fontSize="sm" mt="18px !important">
                                     Phone No.
@@ -931,13 +942,27 @@ function Buy(props: RouterProps & { path: string }) {
                                 </VStack>
 
                                 <VStack alignItems="flex-start">
-                                  <HStack mt="0px !important">
+                                  {true ? <HStack mt="0px !important">
                                     <Text fontSize="sm" mt="0 !important">
                                       {/* MTN NG */}
                                       {(stepTwoData?.paymentDetails as PaymentDetails["mobile-money"]).network}
                                     </Text>
-                                  </HStack>
+                                  </HStack> : null}
 
+                                  <HStack mt="16px !important" justifyContent="flex-start">
+                                    <Text fontSize="sm">
+                                      {/* 0123456789 */}
+                                      {(stepTwoData?.paymentDetails as PaymentDetails["mobile-money"]).merchantCode}
+                                    </Text>
+                                    <IconButton
+                                      onClick={() => copyToClipboard((stepTwoData?.paymentDetails as any).merchantCode)}
+                                      size="xs"
+                                      variant="ghost"
+                                      aria-label="copy"
+                                      icon={<CopyIcon color="#6E7191" />}
+                                    />
+                                  </HStack>
+                                  
                                   <HStack mt="16px !important" justifyContent="flex-start">
                                     <Text fontSize="sm">
                                       {/* 0123456789 */}
@@ -952,7 +977,7 @@ function Buy(props: RouterProps & { path: string }) {
                                     />
                                   </HStack>
                                 </VStack>
-                              </HStack>) : stepTwoData?.transferMethod === "bank-transfer" ? 
+                              </HStack> : stepTwoData?.transferMethod === "bank-transfer" ? 
                               (<HStack mt="18px" direction="row" gridGap="100px">
                                 <VStack alignItems="flex-start">
                                   <Text color="#4E4B66" fontSize="sm" mt="0px !important">

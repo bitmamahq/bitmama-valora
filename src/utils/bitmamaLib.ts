@@ -20,6 +20,7 @@ export type PaymentDetails = {
   "mobile-money": {
     network: string;
     phoneNumber: string;
+    merchantCode: string;
   },
   "bank-transfer": {
     bankCode?: string | undefined;
