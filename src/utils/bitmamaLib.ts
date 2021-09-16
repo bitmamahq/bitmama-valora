@@ -53,7 +53,7 @@ export interface TxPayload {
   sourceAddress: string | undefined;
   destinationFiat: string;
   transactionHash: any;
-  paymentDetails: PaymentDetails["mobile-money"] | PaymentDetails["bank-transfer"];
+  paymentDetails: any;
 }
 
 export interface TxBuyPayload extends TxRequestPayload {
