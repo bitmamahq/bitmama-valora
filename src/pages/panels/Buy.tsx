@@ -328,7 +328,7 @@ function Buy(props: RouterProps & { path: string }) {
           const resp = {...newResp} as TxBuyPayload
           const statuss = {
             "pending": () => setApprovingState("steptwo"),
-            "deposit_paid": () => setApprovingState("stepthreepaid"),
+            "fiat-deposited": () => setApprovingState("stepthreepaid"),
             "timedout": () => setApprovingState("stepthreetimedout"),
             "cancelled": () => setApprovingState("stepthreecancelled"),
             "completed": () => setApprovingState("stepthreecompleted"),
@@ -1123,7 +1123,7 @@ function Buy(props: RouterProps & { path: string }) {
                                   <Text textAlign="center">
                                     Please confirm that you have made payment of{" "}
                                     <strong>
-                                    {formatter(stepTwoData?.sourceCurrency ?? "").format(stepTwoData?.fiatAmount ?? 0)}
+                                    {formatter(stepTwoData?.sourceCurrency || stepTwoData?.sourceFiat || "").format(stepTwoData?.fiatAmount ?? 0)}
                                     </strong>{" "}
                                     to {receipientAccount()}.
                                   </Text>
