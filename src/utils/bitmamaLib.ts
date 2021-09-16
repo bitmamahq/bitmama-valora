@@ -24,7 +24,8 @@ export type PaymentDetails = {
   "bank-transfer": {
     bankCode?: string | undefined;
     accountName: string;
-    bank: string;
+    bank?: string;
+    bankName?: string;
     accountNumber: string | undefined;
   }
 }
@@ -53,7 +54,7 @@ export interface TxPayload {
   sourceAddress: string | undefined;
   destinationFiat: string;
   transactionHash: any;
-  paymentDetails: any;
+  paymentDetails: PaymentDetails["mobile-money"] | PaymentDetails["bank-transfer"];
 }
 
 export interface TxBuyPayload extends TxRequestPayload {
