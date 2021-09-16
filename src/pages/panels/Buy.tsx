@@ -560,7 +560,9 @@ function Buy(props: RouterProps & { path: string }) {
               if (!params.has("address")) params.append("address", addr);
               if (!params.has("unit")) params.append("unit", token);
               if (!params.has("amount") && sendValue) params.append("amount", sendValue);
-              location.replace(`/buy/?${params}`);
+              try{
+                location.replace(`/buy/?${params}`);
+              } catch(err:any) {}
             } else {
               toast({
                 title: "Oops!! Url format error",
