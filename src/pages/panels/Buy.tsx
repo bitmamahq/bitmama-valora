@@ -1107,7 +1107,7 @@ function Buy(props: RouterProps & { path: string }) {
 
                           {["stepthreepaid", "stepthreetimedout","stepthreecompleted", "stepthreecancelled", "refPage"].includes(approvingState) && 
                             <>
-                              <Stack mt="24px !important">
+                              <Stack mt="24px !important" cursor="pointer">
                                 <Text mt="32px !important" fontSize="sm" color="#4E4B66" onClick={startNew}>
                                   Start a new transaction
                                 </Text>
