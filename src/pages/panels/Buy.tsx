@@ -1066,7 +1066,7 @@ function Buy(props: RouterProps & { path: string }) {
                             <Stack p="20px 0" maxW="100px">
                             <Button
                               onClick={() => {
-                                if(window && window.open) window?.open(stepTwoData?.receipt ?? "/buy", '_blank').focus()
+                                // if(window && window.open) window?.open(stepTwoData?.receipt ?? "/buy", '_blank').focus()
                               }}
                               bg="transparent"
                               minW="80px !important"
