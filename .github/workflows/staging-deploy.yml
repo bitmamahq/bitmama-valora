@@ -1,0 +1,35 @@
+name: Deploy to Staging
+on:
+  push:
+    branches:
+      - staging
+
+env:
+  REACT_APP_API_ENDPOINT: ${{ secrets.STAGING_API_ENDPOINT }}
+  REACT_APP_NODE_ENV: "staging"
+  NODE_ENV: "staging"
+  REACT_APP_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+  REACT_APP_CELO_ENDPOINT: ${{ secrets.STAGING_CELO_ENDPOINT }}
+  REACT_APP_API_SECRET: ${{ secrets.STAGING_API_SECRET }}
+  REACT_APP_CELO_SINK: ${{ secrets.STAGING_CELO_SINK }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install firebase tools
+        run: |
+          sudo npm install -g firebase-tools
+          firebase use bitmama-staging --token ${{ secrets.STAGING_FIREBASE_TOKEN }}
+
+      - name: Build webapp
+        run: |
+          npm install
+          npm run build
+
+      - name: Deploy to staging site
+        if: github.ref == 'refs/heads/staging'
+        run: firebase deploy --only hosting:bitmama-valora --non-interactive --token ${{ secrets.STAGING_FIREBASE_TOKEN }} -m "RunID ${{ github.run_id }} Commit SHA ${{ github.sha }}"
