@@ -316,6 +316,29 @@ function Buy(props: RouterProps & { path: string }) {
       const ref = new URLSearchParams(props?.location?.search).get("ref") || "";
 
       if (ref && !skipRefHijack.current) {
+        let balance = 0;
+        const acceptableUnit = ["celo", "ceur", "cusd"];
+        const coin = unit?.trim().toLowerCase();
+        if (address && unit && coin && acceptableUnit.includes(coin)) {
+          try {
+            balance = await getBalance(address, coin);
+            if (isNaN(balance)) balance = 0;
+          } catch (err) {
+            toast({
+              title: "Oops!! Something went wrong",
+              description: String(err),
+              status: "error",
+              duration: 10000,
+              isClosable: true,
+            });
+          }
+        }
+        setProvidedData({
+          email,
+          phone,
+          address,
+          balance: Number(balance ?? 0),
+        });
         setApprovingState("refPage");
         setRefPage({page: "loading", msg: ""})
         try {
@@ -537,7 +560,7 @@ function Buy(props: RouterProps & { path: string }) {
               if (!params.has("address")) params.append("address", addr);
               if (!params.has("unit")) params.append("unit", token);
               if (!params.has("amount") && sendValue) params.append("amount", sendValue);
-              location.replace(`/?${params}`);
+              location.replace(`/buy/?${params}`);
             } else {
               toast({
                 title: "Oops!! Url format error",
