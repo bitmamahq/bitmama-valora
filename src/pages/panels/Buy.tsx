@@ -11,8 +11,7 @@ import {
   HStack, IconButton, Image,
   InputGroup,
   InputLeftElement,
-  InputRightElement, Stack, Text, useToast,
-  VStack
+  InputRightElement, Stack, Text, useClipboard, useDisclosure, useToast, VStack
 } from "@chakra-ui/react";
 import { RouterProps, useNavigate } from "@reach/router";
 import { isNaN } from "lodash";
@@ -23,7 +22,7 @@ import { Button, ConfirmationModal, Input, Select } from "../../components";
 import { IExchangeRate } from "../../interfaces";
 import { getWalletBalance, selectWallet, setWalletDetails } from "../../slice/wallet";
 import { AppDispatch } from "../../store";
-import { getExchangeRate as getRate, requestTxRef, TxBuyPayload } from "../../utils/bitmamaLib";
+import { getExchangeRate as getRate, requestTxRef, TxBuyPayload, TxRequestPayload, updateTxRef } from "../../utils/bitmamaLib";
 import { getBalance } from "../../utils/celo";
 import formatter, { floatString, toUpper } from "../../utils/formatter";
 import { localStorageKey, requestIdKey } from "../../utils/valoraLib";
@@ -61,6 +60,8 @@ function minimumProxy(obj: Partial<Record<string, number>>) {
 const minimumToken = minimumProxy({ celo: 5 });
 
 function Buy(props: RouterProps & { path: string }) {
+  const [copiedValue, setCopiedValue] = useState("")
+  const { onCopy } = useClipboard(copiedValue)
 
   const navigate = useNavigate();
   const [fiat, setFiat] = useState<FiatType>();
@@ -79,8 +80,22 @@ function Buy(props: RouterProps & { path: string }) {
     balance: 0,
   });
 
+  const {
+    isOpen: confirmIsOpen,
+    onOpen: confirmOnOpen,
+    onClose: confirmOnClose,
+  } = useDisclosure();
+
+  const {
+    isOpen: cancelIsOpen,
+    onOpen: cancelOnOpen,
+    onClose: cancelOnClose,
+  } = useDisclosure();
+
   const [transferMethod, setTransferMethod] = useState<TransferType>();
-  const [checkingRate, setCheckingRate] = useState<boolean>(false);
+  const [checkingRate, setCheckingRate] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [approvingState, setApprovingState] = useState("stepone");
   const [stepTwoData, setStepTwoData] = useState<TxBuyPayload | null>(null);
   const [actionState, setActionState] = useState("");
@@ -116,40 +131,40 @@ function Buy(props: RouterProps & { path: string }) {
     return false;
   }, [connected, _balance, transferMethod, sendValue, fiat, token, providedData?.email]);
 
-  const submitTransaction = async () => {
+  const submitTransaction = async (action?: "paid" | "cancel") => {
     try {
       setIsCompletedProcess(false);
       if(approvingState === "stepone") {
         if(isProcessable) {
           setActionState("tosteptwo")
           const txPayload = {
-            token,
-            fiat: fiat === "ng" ? "ngn" : "ghs",
+            destinationToken: token,
+            sourceCurrency: (fiat === "ng" ? "ngn" : "ghs") as TxRequestPayload["sourceCurrency"],
             tokenAmount: Number(sendValue),
-            transferMethod: transferMethod === "bank" ? "bank-transfer" : "mobile-money",
+            transferMethod: (transferMethod === "bank" ? "bank-transfer" : "mobile-money") as TxRequestPayload["transferMethod"],
             email: providedData.email || "",
             phoneNumber: providedData.phone || "",
             fiatAmount: Number(receiveValue),
-            sourceAddress: providedData?.address,
+            destinationAddress: providedData?.address,
           };
           let resp = {
             ...txPayload,
             transactionRef: new Date().getTime().toString(36),
-            paymentDetails: transferMethod === "bank" ? {
+            paymentDetails: (transferMethod === "bank" ? {
               bankCode: String(60543),
               accountName: "Ayo Daniel",
               bankName: "GTBank",
-              accountNumber: Math.floor(Math.random() * 8778332323),
+              accountNumber: String(Math.floor(Math.random() * 8778332323)),
               type: "bank-transfer",
             } : {
-              bankCode: String(60543),
               network: "VODAFONE",
-              phoneNumber: Math.floor(Math.random() * 8778332323),
+              phoneNumber: String(Math.floor(Math.random() * 8778332323)),
               type: "mobile-money",
-            },
-            timeout: 15,
+            }) as TxBuyPayload["paymentDetails"],
+            _timeout: 15,
             createdAt: new Date()
-          }
+          } as TxBuyPayload
+
           if(2+2===5) {
             const respObj = await requestTxRef(txPayload);
             resp = respObj.data as TxBuyPayload
@@ -158,7 +173,19 @@ function Buy(props: RouterProps & { path: string }) {
           setApprovingState("steptwo")
           setActionState("")
         }
-      } else if (isProcessable) {
+      } else if (action === "paid") {
+        setIsConfirming(true)
+        const respObj = await updateTxRef(stepTwoData?.transactionRef, "paid");
+        setStepTwoData(respObj)
+        setApprovingState("stepthreepaid")
+        setIsConfirming(false)
+      } else if (action === "cancel") {
+        setIsCancelling(true)
+        const respObj = await updateTxRef(stepTwoData?.transactionRef ?? "", "cancel");
+        setStepTwoData(respObj.data as TxBuyPayload)
+        setApprovingState("stepthreecancelled")
+        setApprovingState("stepone")
+        setIsCancelling(false)
       } else {
         toast({
           title: "Oops!! Something isn't right",
@@ -169,8 +196,9 @@ function Buy(props: RouterProps & { path: string }) {
         });
       }
     } catch (error: any) {
-      setApprovingState("");
       setActionState("");
+      if(action === "paid") setIsConfirming(false)
+      if(action === "paid") setIsConfirming(false)
       let err = String(error);
       if (error?.isAxiosError) {
         err = error?.response?.data?.message || "Something went wrong";
@@ -257,9 +285,11 @@ function Buy(props: RouterProps & { path: string }) {
     // eslint-disable-next-line
   }, [props?.location?.search, currentTab]);
 
-  const phone = useMemo(() => new URLSearchParams(props?.location?.search).get("phone"), [props?.location?.search]);
-  const address = useMemo(() => new URLSearchParams(props?.location?.search).get("address"), [props?.location?.search]);
-
+  // eslint-disable-next-line
+  const phone = useMemo(() => new URLSearchParams(props?.location?.search).get("phone"), []);
+  // eslint-disable-next-line
+  const address = useMemo(() => new URLSearchParams(props?.location?.search).get("address"), []);
+  
   useEffect(() => {
     if (phone && address) {
       dispatch(
@@ -273,7 +303,8 @@ function Buy(props: RouterProps & { path: string }) {
 
   const copyToClipboard = (text:any) => {
     if(!text) return;
-    return;
+    setCopiedValue(String(text))
+    return onCopy()
   }
 
   const getExchangeRate = async (
@@ -419,6 +450,20 @@ function Buy(props: RouterProps & { path: string }) {
     }
     return errorMsg;
   }, [sendValue, token])
+
+  const receipientAccount = () => {
+    let acc = "";
+    if(approvingState === "steptwo" && stepTwoData?.paymentDetails) {
+      const pDetail = stepTwoData.paymentDetails;
+      if(pDetail) {
+        const pFields = Object.keys(pDetail).filter((k:string) => k !== "type");
+          pFields.forEach((k:string) => {
+            acc += pDetail[k] + " "
+          })
+      }
+    }
+    return acc.trim();
+  }
 
   const handleReceiveValue = (e: any) => {
     setReceiveValue(e.target.value);
@@ -604,7 +649,7 @@ function Buy(props: RouterProps & { path: string }) {
                             >
                               {/* ₦12,000 */}
                               {stepTwoData &&
-                                formatter(stepTwoData?.fiat ?? "").format(stepTwoData?._fiatAmount ?? 0)}{" "}
+                                formatter(stepTwoData?.sourceCurrency ?? "").format(stepTwoData?._fiatAmount ?? 0)}{" "}
                             </Text>
                           </Stack>
                           <Stack>
@@ -613,7 +658,7 @@ function Buy(props: RouterProps & { path: string }) {
                             </Text>
                             <Text fontSize="sm" mt="0px !important">
                               {floatString(stepTwoData?._tokenAmount ?? 0)}{" "}
-                              {toUpper(stepTwoData?.token ?? "")}
+                              {toUpper(stepTwoData?.destinationToken ?? "")}
                             </Text>
                           </Stack>
                           <Stack>
@@ -623,7 +668,7 @@ function Buy(props: RouterProps & { path: string }) {
                             <Text mt="0px !important" fontSize="sm">
                               {/* 19,190,000.00 */}
                               {floatString(stepTwoData?._fee ?? 0)}{" "}
-                              {toUpper(stepTwoData?.token ?? "")}
+                              {toUpper(stepTwoData?.destinationToken ?? "")}
                             </Text>
                           </Stack>
                         </HStack>
@@ -662,6 +707,7 @@ function Buy(props: RouterProps & { path: string }) {
                                     {stepTwoData?.paymentDetails.phoneNumber}
                                   </Text>
                                   <IconButton
+                                    onClick={() => copyToClipboard((stepTwoData?.paymentDetails as any).phoneNumber)}
                                     size="xs"
                                     variant="ghost"
                                     aria-label="copy"
@@ -719,11 +765,11 @@ function Buy(props: RouterProps & { path: string }) {
                         <Stack mt="24px !important">
                           <Text fontSize="sm">Time limit</Text>
                           <Text fontSize="sm" mt="0 !important" color="#03A438">
-                          {stepTwoData._timeout ?? 10}:00
+                          {stepTwoData?._timeout ?? 10}:00
                           </Text>
 
                           <Text mt="32px !important" fontSize="sm" color="#4E4B66">
-                            Please ensure payment is made within {stepTwoData._timeout ?? 10}:00
+                            Please ensure payment is made within {stepTwoData?._timeout ?? 10}:00
                             mins, else transaction would be cancelled.
                           </Text>
                         </Stack>
@@ -736,49 +782,48 @@ function Buy(props: RouterProps & { path: string }) {
                         >
                           <Button
                             // h="56px"
-                            onClick={() => {}}
+                            onClick={cancelOnOpen}
                             minW="120px !important"
                             // px="10px"
                             bg="transparent"
                             border="2px solid transparent"
                             color="#03A438"
                           >
-                            Cancel trade
+                            Cancel
                           </Button>
-                          <Button onClick={() => {}} minW="120px !important">
+                          <Button onClick={confirmOnOpen} minW="120px !important">
                             Paid
                           </Button>
                         </HStack>
 
                         <ConfirmationModal
-                          isOpen={false}
-                          onClose={()=>{}}
-                          isLoading={false}
-                          onConfirm={() => {}}
+                          isOpen={confirmIsOpen}
+                          onClose={confirmOnClose}
+                          isLoading={isConfirming}
+                          onConfirm={() => submitTransaction("cancel")}
                           title="Confirm payment"
                         >
                           <VStack>
                             <Text textAlign="center">
                               Please confirm that you have make payment of{" "}
                               <strong>
-                                N2000
+                              {formatter(stepTwoData?.sourceCurrency ?? "").format(stepTwoData?._fiatAmount ?? 0)}
                               </strong>{" "}
-                              to seller bank account.
+                              to {receipientAccount()}.
                             </Text>
                           </VStack>
                         </ConfirmationModal>
 
                         <ConfirmationModal
-                          isOpen={false}
-                          onClose={()=>{}}
-                          isLoading={false}
-                          onConfirm={() => {}}
+                          isOpen={cancelIsOpen}
+                          onClose={cancelOnClose}
+                          isLoading={isCancelling}
+                          onConfirm={() => submitTransaction("paid")}
                           title="Confirm"
                         >
                           <VStack>
                             <Text textAlign="center">
-                              By cancelling this order, the coins would be returned back to the
-                              seller, and the funds are not refundable.
+                              By cancelling this transaction, the transaction reference will no longer be eligible to any claims or liability.
                             </Text>
                           </VStack>
                         </ConfirmationModal>

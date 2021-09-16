@@ -16,10 +16,10 @@ export const getExchangeRate = async (source: string, destination: string) => {
   }
 };
 
-type PaymentDetails = {
+export type PaymentDetails = {
   "mobile-money": {
     network: string;
-    phoneNumber: string;
+    phoneNumber?: string;
     type: "mobile-money"
   },
   "bank-transfer": {
@@ -31,26 +31,37 @@ type PaymentDetails = {
   }
 }
 
-type TxRequestPayload = {
+export type TxRequestPayload = {
   phoneNumber?: string;
-  sourceAddress: string | undefined;
   fiatAmount: number;
   tokenAmount: number;
-  sourceToken: "celo" | "cusd" | "ceur" | undefined;
-  transferMethod: string;
+  sourceCurrency: "ngn" | "ghs";
+  transferMethod: keyof PaymentDetails;
   email: string;
-  fiat:string;
-  token: string;
+  destinationToken: "celo" | "cusd" | "ceur" | undefined;
+  destinationAddress?: any;
 };
 
-export interface TxPayload extends TxRequestPayload {
+export interface TxPayload {
+  phoneNumber?: string;
+  fiatAmount: number;
+  tokenAmount: number;
+  transferMethod: keyof PaymentDetails;
+  email: string;
+  fiat:string;
+  destinationAddress?: any;
+
+  destinationToken: TxRequestPayload["sourceCurrency"];
+  sourceToken: TxRequestPayload["destinationToken"];
+  token: string;
+  sourceAddress: string | undefined;
   destinationFiat: string;
   transactionHash: any;
-  destinationAddress?: any;
   paymentDetails: PaymentDetails["mobile-money"] | PaymentDetails["bank-transfer"];
 }
 
-export interface TxBuyPayload extends TxPayload {
+export interface TxBuyPayload extends TxRequestPayload {
+  paymentDetails: PaymentDetails["mobile-money"] | PaymentDetails["bank-transfer"];
   transactionState?: "pending" | "timedout" | "cancelled" | "processing" | "paid" | "completed",
   transactionRef: string,
   depositReceipt?: string,
@@ -62,6 +73,8 @@ export interface TxBuyPayload extends TxPayload {
   createdAt: Date,
   processedAt: Date,
 }
+
+export type TxUpdate = "paid" | "cancel"
 
 export const sendTxRequest = async (sourcePayload: TxPayload) => {
   try {
@@ -87,6 +100,16 @@ export const requestTxRef = async (sourcePayload: TxRequestPayload) => {
     };
 
     const rateReq = await post(endpoint, payload, headers);
+    return Promise.resolve(rateReq);
+  } catch (err) {
+    return Promise.reject(err);
+  }
+};
+
+export const updateTxRef = async (ref: string, operation: TxUpdate) => {
+  try {
+    const endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/buy`;
+    const rateReq = await post(endpoint, {ref, operation}, headers);
     return Promise.resolve(rateReq);
   } catch (err) {
     return Promise.reject(err);
