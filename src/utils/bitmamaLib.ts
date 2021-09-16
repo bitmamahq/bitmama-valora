@@ -24,7 +24,8 @@ export type PaymentDetails = {
   "bank-transfer": {
     bankCode?: string | undefined;
     accountName: string;
-    bank: string;
+    bank?: string;
+    bankName?: string;
     accountNumber: string | undefined;
   }
 }
