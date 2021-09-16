@@ -46,13 +46,10 @@ export interface TxPayload {
   phoneNumber?: string;
   fiatAmount: number;
   tokenAmount: number;
-  transferMethod: keyof PaymentDetails;
+  transferMethod: string;
   email: string;
-  fiat:string;
   destinationAddress?: any;
-  destinationToken: TxRequestPayload["sourceCurrency"];
   sourceToken: TxRequestPayload["destinationToken"];
-  token: string;
   sourceAddress: string | undefined;
   destinationFiat: string;
   transactionHash: any;
