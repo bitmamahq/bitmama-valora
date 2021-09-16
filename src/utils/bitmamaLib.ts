@@ -60,18 +60,20 @@ export interface TxPayload {
 }
 
 export interface TxBuyPayload extends TxRequestPayload {
+  sourceFiat?: "ngn" | "ghs";
   status: TxRequestStatus
   paymentDetails: PaymentDetails["mobile-money"] | PaymentDetails["bank-transfer"];
   transactionState?: "pending" | "timedout" | "cancelled" | "processing" | "paid" | "completed",
   transactionReference: string,
   depositReceipt?: string,
   transferReceipt?: string,
+  receipt?: string,
   _tokenAmount: number,
   _fiatAmount: number,
   _fee: number,
   timeout: number,
-  createdAt: Date,
-  processedAt: Date,
+  createdAt: string,
+  processedAt: string,
 }
 
 export type TxUpdate = "paid" | "cancel"
@@ -112,6 +114,17 @@ export const updateTxRef = async (ref: string, operation: TxUpdate) => {
     if(operation === "cancel") {
       endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/buy/cancel?transactionRef=${ref}`;
     }
+    const rateReq = await get(endpoint, headers);
+    return Promise.resolve(rateReq);
+  } catch (err) {
+    return Promise.reject(err);
+  }
+};
+
+export const getTxRef = async (ref: string) => {
+  try {
+    let endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/${ref}`;
+    
     const rateReq = await get(endpoint, headers);
     return Promise.resolve(rateReq);
   } catch (err) {
