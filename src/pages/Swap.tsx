@@ -1,4 +1,5 @@
 import { Box, Container, Heading, Image, Tab, TabList, TabPanel, TabPanels, Tabs, VStack } from "@chakra-ui/react";
+import { useNavigate } from "@reach/router";
 import { useState } from "react";
 import { Buy, Withdraw } from "./panels";
 
@@ -13,8 +14,17 @@ const tabs = ["withdraw", "buy"];
 const Swap = (props: any) => {
   const [tabIndex, setTabIndex] = useState(String(props.action).toLowerCase() === "buy" ? 1 : 0)
   const currentTab = tabs[tabIndex] || "withdraw";
+  const navigate = useNavigate();
 
   const handleTabsChange = (index:number) => {
+    
+    try{
+      let url = new URL(window.location.href);
+      let params = new URLSearchParams(url.search.slice(1));
+      if(index === 0) navigate(`/?${params}`);
+      if(index === 1) navigate(`/buy/?${params}`);
+    } catch(err:any) {
+    }
     setTabIndex(index)
   }
 
