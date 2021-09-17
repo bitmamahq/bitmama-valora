@@ -1,10 +1,10 @@
 import {
-    WarningTwoIcon
+  WarningTwoIcon
 } from "@chakra-ui/icons";
 import {
-    Box, Center, CircularProgress, Container, Flex, FormControl,
-    Heading,
-    HStack, Stack, Text, VStack
+  Box, Center, CircularProgress, Container, Flex, FormControl,
+  Heading,
+  HStack, Stack, Text, VStack
 } from "@chakra-ui/react";
 import { FC } from "react";
 
@@ -17,7 +17,7 @@ export type BuyRefProps = {
 const BuyRefPage:FC<BuyRefProps> = ({view, error, startNew}) => {
     return (
         <FormControl mt="20px">
-                  <HStack mt=".25rem">
+                  <HStack mt=".25rem" justifyContent="center">
                     <Box bg="white" borderRadius="16px" h="fit-content">
 
                       <Stack p="32px">

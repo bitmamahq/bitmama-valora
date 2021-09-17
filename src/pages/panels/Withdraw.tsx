@@ -77,6 +77,8 @@ const minimumToken = minimumProxy({ celo: 5 });
 function Widthdraw(props: RouterProps & { path: string }) {
   const { onOpen: onPopOverOpen, onClose: onPopOverClose, isOpen: isContactPopOverOpen } = useDisclosure();
   const firstFieldRef = useRef(null);
+  const isTouched = useRef(false);
+  const isMounted = useRef(false);
 
   const navigate = useNavigate();
   const [fiat, setFiat] = useState<FiatType>();
@@ -106,6 +108,7 @@ function Widthdraw(props: RouterProps & { path: string }) {
   const [accountNumber, setAccountNumber] = useState<string | undefined>();
 
   const [skipBankListLoad, setSkipBankListLoad] = useState(true);
+  const [, setWithdrawalPayload] = useState<any>(null);
 
   const toast = useToast();
   const closeRef = useRef<any>();
@@ -174,7 +177,9 @@ function Widthdraw(props: RouterProps & { path: string }) {
             accountName: fiat === "ng" ? bankDetail?.account_name ?? "" : accountName ?? "",
           },
         };
-        await sendTxRequest(txPayload);
+        const resp = await sendTxRequest(txPayload);
+        setWithdrawalPayload({...resp.data?.message, ...trans});
+        console.log(resp, trans)
         setIsCompletedProcess(true);
         return trans?.hash;
       } else {
@@ -264,7 +269,9 @@ function Widthdraw(props: RouterProps & { path: string }) {
   useEffect(() => {
     return () => {
       if (closeRef.current) clearTimeout(closeRef.current);
-      !isCompletedProcess && window.confirm("Are you sure you want to discard your changes?");
+      // eslint-disable-next-line
+      !isCompletedProcess && isMounted.current && isTouched.current && window.confirm("Are you sure you want to discard your changes?");
+      isMounted.current = false;
     };
     // eslint-disable-next-line
   }, []);
@@ -415,31 +422,58 @@ function Widthdraw(props: RouterProps & { path: string }) {
 
   /* eslint-disable */
   useEffect(() => {
-    if (!providedData?.address) {
+    if (!providedData?.address || !providedData.phone) {
       redebounce(
         () => {
           if (token) {
-            const addr = window.prompt(`Enter your ${token.toUpperCase()} address: `);
-            if (addr) {
-              if (debouncer.current["checkAddress"]) {
-                clearTimeout(debouncer.current["checkAddress"]);
-                debouncer.current["checkAddress"] = undefined;
+            if(!providedData?.address) {
+              const addr = window.prompt(`Enter your ${token.toUpperCase()} address: `);
+              if (addr) {
+                if (debouncer.current["checkAddress"]) {
+                  clearTimeout(debouncer.current["checkAddress"]);
+                  debouncer.current["checkAddress"] = undefined;
+                }
+                setProvidedData({ ...providedData, address: addr });
+                let url = new URL(window.location.href);
+                let params = new URLSearchParams(url.search.slice(1));
+                if (!params.has("address")) params.append("address", addr);
+                if (!params.has("unit")) params.append("unit", token);
+                if (!params.has("amount") && sendValue) params.append("amount", sendValue);
+                location.replace(`/?${params}`);
+              } else {
+                toast({
+                  title: "Oops!! Url format error",
+                  description: `Address is missing in query`,
+                  status: "error",
+                  duration: showField?.unit ? 2000 : 20000,
+                  isClosable: true,
+                });
               }
-              setProvidedData({ ...providedData, address: addr });
-              let url = new URL(window.location.href);
-              let params = new URLSearchParams(url.search.slice(1));
-              if (!params.has("address")) params.append("address", addr);
-              if (!params.has("unit")) params.append("unit", token);
-              if (!params.has("amount") && sendValue) params.append("amount", sendValue);
-              location.replace(`/?${params}`);
-            } else {
-              toast({
-                title: "Oops!! Url format error",
-                description: `Address is missing in query`,
-                status: "error",
-                duration: showField?.unit ? 2000 : 20000,
-                isClosable: true,
-              });
+            }
+            if(!providedData.phone && providedData?.address) {
+              const phoneNo = window.prompt(`Enter your phone number: `);
+              if (phoneNo) {
+                if (debouncer.current["checkPhone"]) {
+                  clearTimeout(debouncer.current["checkPhone"]);
+                  debouncer.current["checkPhone"] = undefined;
+                }
+                setProvidedData({ ...providedData, phone: phoneNo });
+                let url = new URL(window.location.href);
+                let params = new URLSearchParams(url.search.slice(1));
+                if (!params.has("phone")) params.append("phone", phoneNo);
+                if (!params.has("address")) params.append("address", providedData.address);
+                if (!params.has("unit")) params.append("unit", token);
+                if (!params.has("amount") && sendValue) params.append("amount", sendValue);
+                location.replace(`/?${params}`);
+              } else {
+                toast({
+                  title: "Oops!! Bad Request",
+                  description: `Phone number is required`,
+                  status: "error",
+                  duration: showField?.unit ? 2000 : 20000,
+                  isClosable: true,
+                });
+              }
             }
           }
         },
@@ -452,12 +486,17 @@ function Widthdraw(props: RouterProps & { path: string }) {
         clearTimeout(debouncer.current["checkAddress"]);
         debouncer.current["checkAddress"] = undefined;
       }
+      if (debouncer.current["checkPhone"]) {
+        clearTimeout(debouncer.current["checkPhone"]);
+        debouncer.current["checkPhone"] = undefined;
+      }
     };
-  }, [providedData?.address, showField.unit, token, sendValue]);
+  }, [providedData?.address, providedData?.phone, showField.unit, token, sendValue]);
   /* eslint-enable */
 
   const handleReceiveValue = (e: any) => {
     setReceiveValue(e.target.value);
+    isTouched.current = true;
     redebounce(async () => await getExchangeRate(e, { _receive: e.target.value }), "handleReceiveValue", 2000)();
   };
 
@@ -492,12 +531,13 @@ function Widthdraw(props: RouterProps & { path: string }) {
   if (currentTab !== "newTab") {
     return (
       <>
+      <Box as="form" boxShadow="base" p={["1rem 1.5rem", "2rem 2.5rem"]} w="100%" bg="white" borderRadius=".5rem" minWidth={["92vw", "26rem"]}>
         <FormControl mt="20px">
-                  <HStack mt=".25rem">
+                  <HStack mt=".25rem" justifyContent="center">
                     <Box bg="white" borderRadius="16px" h="fit-content">
                       <Stack p="32px">
                         <Box p="10px 0" minH="20vh">
-                            <Box bg="rgba(249,250,251,1)" h="100%">
+                            <Box h="100%">
                                 <Container maxW={["container.xl", "xl"]} h="100%">
                                     <VStack p={["10px 0", "10px"]}>
                                         <VStack>
@@ -515,6 +555,7 @@ function Widthdraw(props: RouterProps & { path: string }) {
                     </Box>
                 </HStack>
             </FormControl>
+          </Box>
       </>
     );
   }
@@ -523,7 +564,7 @@ function Widthdraw(props: RouterProps & { path: string }) {
 
   return (
     <>
-      <Box as="form" boxShadow="base" p={["1rem 1.5rem", "2rem 2.5rem"]} w="100%" bg="white" borderRadius=".5rem">
+      <Box as="form" boxShadow="base" p={["1rem 1.5rem", "2rem 2.5rem"]} w="100%" bg="white" borderRadius=".5rem" minWidth={["92vw", "26rem"]}>
         {connected && approvingState !== "completed" && (
           <Badge mb="20px" variant="solid" colorScheme="green">
             CONNECTED
@@ -852,7 +893,12 @@ function Widthdraw(props: RouterProps & { path: string }) {
                   <Box
                     as="button"
                     onClick={() => {
-                      navigate(`/`);
+                      // disabling the old method
+                      if(2+2 === 5) navigate(`/`);
+                      setApprovingState("")
+                      handleToken({ target: { value: "" } });
+
+                      isTouched.current = false;
                       closeRef.current = setTimeout(() => window.close(), 1000);
                     }}
                     fontSize="12px"
