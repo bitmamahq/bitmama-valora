@@ -629,7 +629,7 @@ function Buy(props: RouterProps & { path: string }) {
 
   return (
     <>
-      <Box as="form" boxShadow="base" p={["1rem 1.5rem", "2rem 2.5rem"]} w="100%" bg="white" borderRadius=".5rem">
+      <Box as="form" boxShadow="base" p={["1rem 1.5rem", "2rem 2.5rem"]} w="100%" bg="white" borderRadius=".5rem" minWidth={["92vw", "26rem"]}>
         {connected && approvingState === "stepone" && (
           <Badge mb="20px" variant="solid" colorScheme="green">
             CONNECTED
@@ -1052,8 +1052,7 @@ function Buy(props: RouterProps & { path: string }) {
 
                               <HStack mt="12px">
                                 <Text fontSize="sm" color="#4E4B66">
-                                  You have successfully cancelled the transaction, Feel free to initiate a
-                                  new trade
+                                  {refPage.page === "loaded" || !skipRefHijack.current ? "The transaction was cancelled" : "You have successfully cancelled the transaction."}
                                 </Text>
                               </HStack>
                             </Box> : approvingState === "stepthreetimedout" ?
