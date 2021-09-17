@@ -1,4 +1,4 @@
-import { get, post } from "./axiosLib";
+import { del, get, post } from "./axiosLib";
 
 const headers = {
   Authorization: `X-ENTERPRISE-TOKEN ${process.env.REACT_APP_API_SECRET}`,
@@ -109,12 +109,15 @@ export const requestTxRef = async (sourcePayload: TxRequestPayload) => {
 
 export const updateTxRef = async (ref: string, operation: TxUpdate) => {
   try {
+    let reqHandler;
     let endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/buy/confirm?transactionRef=${ref}`;
     if(operation === "cancel") {
-      endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/buy/cancel?transactionRef=${ref}`;
+      endpoint = `${process.env.REACT_APP_API_ENDPOINT}/v1/valora/${ref}`;
+      reqHandler = await del(endpoint, headers);
+    } else {
+      reqHandler = await get(endpoint, headers);
     }
-    const rateReq = await get(endpoint, headers);
-    return Promise.resolve(rateReq);
+    return Promise.resolve(reqHandler);
   } catch (err) {
     return Promise.reject(err);
   }
