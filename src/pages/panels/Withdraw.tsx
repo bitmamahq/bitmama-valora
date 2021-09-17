@@ -893,7 +893,12 @@ function Widthdraw(props: RouterProps & { path: string }) {
                   <Box
                     as="button"
                     onClick={() => {
-                      navigate(`/`);
+                      // disabling the old method
+                      if(2+2 === 5) navigate(`/`);
+                      setApprovingState("")
+                      handleToken({ target: { value: "" } });
+
+                      isTouched.current = false;
                       closeRef.current = setTimeout(() => window.close(), 1000);
                     }}
                     fontSize="12px"
